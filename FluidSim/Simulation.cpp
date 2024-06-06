@@ -4,10 +4,10 @@
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
 
-    gravity = {0, 0};
+    gravity = { 0, 0 };
     collisionDampening = 0.2;
 
-    smoothingRadius = 50;
+    smoothingRadius = 30;
     pressureMultiplier = 1000;
 
     //particles = Array<Particle>(512, 512);
@@ -18,23 +18,23 @@ Simulation::Simulation(Vector4 _bounds) {
     //    particles[i] = Particle(this, { x, y });
 
     //    // initiate particle with random velocity
-    //    //float velX = ((rand() * 40) / RAND_MAX) - 20;
-    //    //float velY = ((rand() * 40) / RAND_MAX) - 20;
-    //    //particles[i].setVel({ velX, velY });
+    //    float velX = ((rand() * 40) / RAND_MAX) - 20;
+    //    float velY = ((rand() * 40) / RAND_MAX) - 20;
+    //    particles[i].setVel({ velX, velY });
     //}
 
     particles = Array<Particle>(400, 512);
     // initiate particles in a square formation
     for (int i = 0; i < particles.getCount(); i++) {
-        particles[i] = Particle(this, { 100 + (float)(i % 20) * 20, 100 + (float)(i / 20) * 20 });
+        particles[i] = Particle(this, { 100 + (float)(i % 20) * 10, 100 + (float)(i / 20) * 10 });
     }
 }
 
 // smoothing function
 float Simulation::smoothing(float radius, float dist) {
-    float volume = radius * radius;
+    float volume = PI * 0.5 * radius * radius * radius * radius;
     float value = std::max(0.f, radius - dist);
-    return value/volume;
+    return (value * value * value)/volume;
 }
 
 // calculates density level at a particle's position

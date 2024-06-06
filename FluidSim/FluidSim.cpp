@@ -13,7 +13,7 @@ int main() {
     int seed = 844134593;
     srand(seed);
 
-    Simulation sim({ 500, 100, (float)screenWidth - 500, (float)screenHeight - 100 });
+    Simulation sim({ 600, 200, (float)screenWidth - 600, (float)screenHeight - 200 });
 
     while (!WindowShouldClose()) {
         // Updates

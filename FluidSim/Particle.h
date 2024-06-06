@@ -1,5 +1,6 @@
 #pragma once
 #include "raylib.h"
+#include "raymath.h"
 
 class Simulation;
 
@@ -23,6 +24,7 @@ public:
     float getMass() { return mass; }
     float getRadius() { return radius; }
     Vector2 getPos() { return pos; }
+    Vector2 getProjectedPos(float deltaTime) { return Vector2Add(pos, Vector2Scale(vel, deltaTime)); }
     Vector2 getVel() { return vel; }
     void setPos(Vector2 newPos) { pos = newPos; }
     void setX(float x) { pos.x = x; }

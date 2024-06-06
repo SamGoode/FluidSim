@@ -4,7 +4,7 @@
 
 Particle::Particle(Simulation* _sim, Vector2 _pos) {
     sim = _sim;
-    mass = 10;
+    mass = 1;
     radius = 5;
     pos = _pos;
     vel = { 0, 0 };

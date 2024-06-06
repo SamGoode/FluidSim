@@ -20,5 +20,19 @@ public:
 
     Particle& operator=(const Particle& copy);
 
+    float getMass() { return mass; }
+    float getRadius() { return radius; }
+    Vector2 getPos() { return pos; }
+    Vector2 getVel() { return vel; }
+    void setPos(Vector2 newPos) { pos = newPos; }
+    void setX(float x) { pos.x = x; }
+    void setY(float y) { pos.y = y; }
+    void setVel(Vector2 newVel) { vel = newVel; }
+    void setVelX(float x) { vel.x = x; }
+    void setVelY(float y) { vel.y = y; }
+    
+    void applyForce(Vector2 force);
+
+    void update(float deltaTime);
     void draw();
 };

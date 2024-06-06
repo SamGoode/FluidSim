@@ -1,10 +1,11 @@
 #include "Particle.h"
 #include "Simulation.h"
+#include "raymath.h"
 
 Particle::Particle(Simulation* _sim, Vector2 _pos) {
     sim = _sim;
     mass = 10;
-    radius = 15;
+    radius = 5;
     pos = _pos;
     vel = { 0, 0 };
 }
@@ -25,6 +26,14 @@ Particle& Particle::operator=(const Particle& copy) {
     vel = copy.vel;
 
     return *this;
+}
+
+void Particle::applyForce(Vector2 force) {
+    vel = Vector2Add(vel, Vector2Divide(force, mass));
+}
+
+void Particle::update(float deltaTime) {
+    pos = Vector2Add(pos, Vector2Scale(vel, deltaTime));
 }
 
 void Particle::draw() {

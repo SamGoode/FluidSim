@@ -10,13 +10,16 @@ int main() {
 
     SetTargetFPS(240);
 
-    srand(78925311);
+    int seed = 844134593;
+    srand(seed);
 
     Simulation sim({ 200, 100, (float)screenWidth - 200, (float)screenHeight - 100 });
 
     while (!WindowShouldClose()) {
         // Updates
         float delta = GetFrameTime();
+
+        sim.update(delta);
 
 
         // Drawing

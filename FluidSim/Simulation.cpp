@@ -7,17 +7,9 @@ Simulation::Simulation(Vector4 _bounds) {
     gravity = { 0, 0 };
     collisionDampening = 0.2;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     showSmoothingRadius = false;
     smoothingRadius = 40;
     pressureMultiplier = 10000;
-=======
-=======
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
-    smoothingRadius = 30;
-    pressureMultiplier = 1000;
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
 
     defaultMass = 1;
     defaultRadius = 5;
@@ -28,8 +20,7 @@ Simulation::Simulation(Vector4 _bounds) {
     //    float y = (rand() * (bounds.w - bounds.y)) / RAND_MAX;
     //    Vector2 position = { x, y };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
+
     //    // generate random velocity
     //    //float velX = ((rand() * 40) / RAND_MAX) - 20;
     //    //float velY = ((rand() * 40) / RAND_MAX) - 20;
@@ -37,31 +28,12 @@ Simulation::Simulation(Vector4 _bounds) {
     //    Vector2 vel = { 0, 0 };
 
     //    particles[i] = { defaultMass, defaultRadius, position, vel };
-=======
-=======
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
-    //    // initiate particle with random velocity
-    //    float velX = ((rand() * 40) / RAND_MAX) - 20;
-    //    float velY = ((rand() * 40) / RAND_MAX) - 20;
-    //    particles[i].setVel({ velX, velY });
-<<<<<<< HEAD
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
-=======
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
     //}
 
     particles = Array<Particle>(400);
     // initiate particles in a square formation
     for (int i = 0; i < particles.getCount(); i++) {
-<<<<<<< HEAD
-<<<<<<< HEAD
         particles[i] = { 1, 5, {100 + (float)(i % 20) * 10, 100 + (float)(i / 20) * 10}, {0, 0} };
-=======
-        particles[i] = Particle(this, { 100 + (float)(i % 20) * 10, 100 + (float)(i / 20) * 10 });
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
-=======
-        particles[i] = Particle(this, { 100 + (float)(i % 20) * 10, 100 + (float)(i / 20) * 10 });
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
     }
 
     densities = Array<float>(particles.getCount());
@@ -69,8 +41,6 @@ Simulation::Simulation(Vector4 _bounds) {
 
 // smoothing function
 float Simulation::smoothing(float radius, float dist) {
-<<<<<<< HEAD
-<<<<<<< HEAD
     if (dist >= radius) {
         return 0;
     }
@@ -81,7 +51,7 @@ float Simulation::smoothing(float radius, float dist) {
     return value / volume;
 }
 
-//(r-d)^3
+// (r-d)^3
 float Simulation::smoothingGradient(float radius, float dist) {
     if (dist >= radius) {
         return 0;
@@ -90,16 +60,6 @@ float Simulation::smoothingGradient(float radius, float dist) {
     float difference = radius - dist;
     float gradient = -(30 * difference * difference) / (PI * pow(radius, 5));
     return gradient;
-=======
-    float volume = PI * 0.5 * radius * radius * radius * radius;
-    float value = std::max(0.f, radius - dist);
-    return (value * value * value)/volume;
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
-=======
-    float volume = PI * 0.5 * radius * radius * radius * radius;
-    float value = std::max(0.f, radius - dist);
-    return (value * value * value)/volume;
->>>>>>> 64af7581f75ac825354e0cfd2274aa807470c69c
 }
 
 // calculates density level at a particle's position

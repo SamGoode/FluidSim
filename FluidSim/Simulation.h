@@ -6,11 +6,18 @@
 class Simulation {
 private:
     Vector4 bounds;
+
     Vector2 gravity;
     float collisionDampening;
+
+    bool showSmoothingRadius;
     float smoothingRadius;
     float pressureMultiplier;
+
+    float defaultMass;
+    float defaultRadius;
     Array<Particle> particles;
+    Array<float> densities;
 
 public:
     Simulation(Vector4 _bounds);
@@ -21,6 +28,7 @@ public:
     bool outOfBounds(Vector2 pos) { return pos.x < 0 || pos.x >= bounds.z - bounds.x || pos.y < 0 || pos.y >= bounds.w - bounds.y; }
 
     static float smoothing(float radius, float dist);
+    static float smoothingGradient(float radius, float dist);
     float calculateDensity(Vector2 pos);
     Vector2 calculateGradientVec(Vector2 pos);
 

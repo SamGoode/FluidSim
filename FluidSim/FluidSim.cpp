@@ -25,7 +25,6 @@ int main() {
 
         sim.update(delta);
 
-
         // Drawing
         BeginDrawing();
 

@@ -134,7 +134,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="FluidSim.cpp" />
-    <ClCompile Include="Particle.cpp" />
     <ClCompile Include="Simulation.cpp" />
   </ItemGroup>
   <ItemGroup>

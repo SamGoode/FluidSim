@@ -18,9 +18,6 @@
     <ClCompile Include="FluidSim.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Particle.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Simulation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

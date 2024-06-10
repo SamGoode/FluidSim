@@ -12,7 +12,9 @@ private:
 
     bool showSmoothingRadius;
     float smoothingRadius;
+    float targetDensity;
     float pressureMultiplier;
+    float timeMultiplier;
 
     float defaultMass;
     float defaultRadius;
@@ -30,6 +32,8 @@ public:
     static float smoothing(float radius, float dist);
     static float smoothingGradient(float radius, float dist);
     float calculateDensity(Vector2 pos);
+    float convertDensityToPressure(float density);
+    float calculateSharedPressure(float densityA, float densityB);
     Vector2 calculateGradientVec(Vector2 pos);
 
     void update(float deltaTime);

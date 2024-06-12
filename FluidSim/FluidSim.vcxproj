@@ -137,13 +137,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="FluidSim.cpp" />
+    <ClCompile Include="RadixSort.cpp" />
     <ClCompile Include="Simulation.cpp" />
+    <ClCompile Include="SpatialHashGrid.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Array.h" />
+    <ClInclude Include="int2.h" />
     <ClInclude Include="Particle.h" />
+    <ClInclude Include="RadixSort.h" />
     <ClInclude Include="RaylibOverloads.h" />
     <ClInclude Include="Simulation.h" />
+    <ClInclude Include="SpatialHashGrid.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

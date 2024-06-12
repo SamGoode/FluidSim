@@ -5,13 +5,13 @@
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
     // scale is pixels/unit
-    scale = 10;
+    scale = 8;
 
     gravity = { 0, 1 };
-    collisionDampening = 0.1;
+    collisionDampening = 0.2;
 
     showSmoothingRadius = false;
-    smoothingRadius = 1.5;
+    smoothingRadius = 1.2;
     targetDensity = smoothing(smoothingRadius, 0);
     pressureMultiplier = 100;
     timeMultiplier = 4;
@@ -121,6 +121,10 @@ Vector2 Simulation::calculateGradientVec(Vector2 pos) {
 
 //force = change in mass * velocity / change in time
 void Simulation::update(float deltaTime) {
+    if (deltaTime > 0.5) {
+        return;
+    }
+
     // gravity application
     for (int i = 0; i < particles.getCount(); i++) {
         particles[i].vel += gravity * (deltaTime * timeMultiplier);
@@ -209,9 +213,13 @@ void Simulation::draw() {
 
     for (int i = 0; i < particles.getCount(); i++) {
         Vector2 screenPos = convertToScreenPos(particles[i].pos);
-        float densityError = (densities[i] - targetDensity) * 1.5;
-        
-        Color densityColor = { std::min(255.f, 255 * densityError), 0, std::max(0.f, 255 * (1 - densityError)), 255};
+        float densityError = std::max(0.f, (densities[i] - targetDensity)) * 255 * 2 * 1.5;
+
+        float r = std::max(0.f, std::min(255.f, densityError));
+        float g = std::max(0.f, std::min(255.f, densityError - 255));
+        float b = std::max(0.f, std::min(255.f, densityError - 511));
+
+        Color densityColor = { r, g, b, 255};
         
         DrawCircle(screenPos.x, screenPos.y, particles[i].radius * scale, densityColor);
     }

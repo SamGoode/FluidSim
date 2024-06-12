@@ -2,13 +2,31 @@
 #include <string>
 #include "RadixSort.h"
 
-SpatialHashGrid::SpatialHashGrid(Vector2 _pos, Vector2 _size, int _gridWidth, int _gridHeight) {
-    m_pos = _pos;
-    m_size = _size;
+SpatialHashGrid::SpatialHashGrid(Vector2 _size, int _gridWidth, int _gridHeight) {
+    size = _size;
     gridWidth = _gridWidth;
     gridHeight = _gridHeight;
-    cellWidth = (float)(m_size.x / gridWidth);
-    cellHeight = (float)(m_size.y / gridHeight);
+    cellWidth = (float)(size.x / _gridWidth);
+    cellHeight = (float)(size.y / _gridHeight);
+    cellCount = _gridWidth * _gridHeight;
+
+    for (int i = 0; i < 9; i++) {
+        posOffsets[i] = { (i % 3) - 1, (i / 3) - 1 };
+        hashOffsets[i] = { ((i % 3) - 1) + ((i / 3) - 1) * _gridWidth };
+    }
+
+    hashList = Array<int2>(0);
+    indexLookup = Array<int2>(cellCount);
+    dirty = Array<bool>(cellCount);
+    tempIDs = Array<int>(0);
+}
+
+SpatialHashGrid::SpatialHashGrid(Vector2 _size, float _cellWidth, float _cellHeight) {
+    size = _size;
+    gridWidth = size.x / _cellWidth;
+    gridHeight = size.y / _cellHeight;
+    cellWidth = _cellWidth;
+    cellHeight = _cellHeight;
     cellCount = gridWidth * gridHeight;
 
     for (int i = 0; i < 9; i++) {
@@ -17,15 +35,13 @@ SpatialHashGrid::SpatialHashGrid(Vector2 _pos, Vector2 _size, int _gridWidth, in
     }
 
     hashList = Array<int2>(0);
-    startIndices = Array<int>(cellCount);
-    endIndices = Array<int>(cellCount);
+    indexLookup = Array<int2>(cellCount);
     dirty = Array<bool>(cellCount);
     tempIDs = Array<int>(0);
 }
 
 int2 SpatialHashGrid::getCellPos(Vector2 pos) {
-    Vector2 adjusted = Vector2Subtract(pos, m_pos);
-    int2 cellPos = { (int)floor(adjusted.x / cellWidth), (int)floor(adjusted.y / cellHeight) };
+    int2 cellPos = { (int)floor(pos.x / cellWidth), (int)floor(pos.y / cellHeight) };
     if (cellPos.x < 0) {
         cellPos.x = 0;
     }
@@ -43,7 +59,7 @@ int2 SpatialHashGrid::getCellPos(Vector2 pos) {
     return cellPos;
 }
 
-void SpatialHashGrid::generateHashList(const Array<Vector2> positions) {
+void SpatialHashGrid::generateHashList(Array<Vector2> positions) {
     hashList = Array<int2>(positions.getCount());
 
     for (int i = 0; i < hashList.getCount(); i++) {
@@ -58,14 +74,16 @@ void SpatialHashGrid::sortByCellHash() {
         return;
     }
 
-    //std::sort(&hashList[0], &hashList[hashList.getCount() - 1] + 1, compareCellHash);
-    radixSort(hashList, 127);
+    radixSort(hashList, cellCount - 1);
 }
 
 void SpatialHashGrid::generateLookup() {
-    startIndices.clear(-1);
-    endIndices.clear(-1);
+    indexLookup.clear({ -1, -1 });
     dirty.clear(false);
+
+    if (hashList.getCount() == 0) {
+        return;
+    }
 
     int currentStart = 0;
     int previousCellHash = -1;
@@ -74,25 +92,28 @@ void SpatialHashGrid::generateLookup() {
             continue;
         }
 
-        startIndices[hashList[i].y] = currentStart;
+        indexLookup[hashList[i].y].x = currentStart;
 
         if (previousCellHash != -1) {
-            endIndices[previousCellHash] = currentStart - 1;
+            indexLookup[previousCellHash].y = currentStart - 1;
         }
         previousCellHash = hashList[i].y;
 
         currentStart = i + 1;
     }
 
-    endIndices[previousCellHash] = currentStart - 1;
-    startIndices[hashList[hashList.getCount() - 1].y] = currentStart;
-    endIndices[hashList[hashList.getCount() - 1].y] = hashList.getCount() - 1;
+    if (previousCellHash != -1) {
+        indexLookup[previousCellHash].y = currentStart - 1;
+    }
+
+    indexLookup[hashList[hashList.getCount() - 1].y].x = currentStart;
+    indexLookup[hashList[hashList.getCount() - 1].y].y = hashList.getCount() - 1;
 }
 
 const Array<int>& SpatialHashGrid::findWithin(int cellHash) {
     tempIDs.resetCount();
-    int startIndex = startIndices[cellHash];
-    int endIndex = endIndices[cellHash];
+    int startIndex = indexLookup[cellHash].x;
+    int endIndex = indexLookup[cellHash].y;
 
     if (startIndex < 0 || endIndex < 0) {
         return tempIDs;
@@ -108,23 +129,20 @@ const Array<int>& SpatialHashGrid::findWithin(int cellHash) {
 const Array<int>& SpatialHashGrid::findNearby(int centreCellHash) {
     tempIDs.resetCount();
     int2 centreCellPos = getCellPos(centreCellHash);
-    int cellHash;
-    int startIndex;
-    int endIndex;
 
     for (int i = 0; i < 9; i++) {
         if (!isValidCellPos(centreCellPos + posOffsets[i])) {
             continue;
         }
 
-        cellHash = centreCellHash + hashOffsets[i];
+        int cellHash = centreCellHash + hashOffsets[i];
 
         if (dirty[cellHash]) {
             continue;
         }
 
-        startIndex = startIndices[cellHash];
-        endIndex = endIndices[cellHash];
+        int startIndex = indexLookup[cellHash].x;
+        int endIndex = indexLookup[cellHash].y;
 
         if (startIndex < 0 || endIndex < 0) {
             continue;
@@ -138,7 +156,7 @@ const Array<int>& SpatialHashGrid::findNearby(int centreCellHash) {
     return tempIDs;
 }
 
-const Array<int>& SpatialHashGrid::findNearby(int2 cellPos) {
+Array<int> SpatialHashGrid::findNearby(int2 cellPos) {
     tempIDs.resetCount();
     int centreCellHash = getCellHash(cellPos);
 
@@ -149,8 +167,8 @@ const Array<int>& SpatialHashGrid::findNearby(int2 cellPos) {
 
         int cellHash = centreCellHash + hashOffsets[i];
 
-        int startIndex = startIndices[cellHash];
-        int endIndex = endIndices[cellHash];
+        int startIndex = indexLookup[cellHash].x;
+        int endIndex = indexLookup[cellHash].y;
         if (startIndex < 0 || endIndex < 0) {
             continue;
         }
@@ -163,26 +181,26 @@ const Array<int>& SpatialHashGrid::findNearby(int2 cellPos) {
     return tempIDs;
 }
 
-void SpatialHashGrid::draw() {
-    Vector2 pos = GetMousePosition();
-    
+void SpatialHashGrid::draw(Vector2 pos, float scale, Vector2 testPos) {
+    //Vector2 testPos = GetMousePosition();
 
-    int2 cellPos = getCellPos(pos);
+    int2 cellPos = getCellPos(testPos);
     Array<int> withinIDs = findWithin(getCellHash(cellPos));
     Array<int> IDs = findNearby(cellPos);
 
     int x = cellPos.x;
     int y = cellPos.y;
-    DrawRectangle(m_pos.x + (x - 1) * cellWidth, m_pos.y + (y - 1) * cellHeight, cellWidth * 3, cellHeight * 3, ORANGE);
-    DrawRectangle(m_pos.x + x * cellWidth, m_pos.y + y * cellHeight, cellWidth, cellHeight, RED);
+    DrawRectangle(pos.x +(x - 1) * cellWidth * scale, pos.y + (y - 1) * cellHeight * scale, cellWidth * scale * 3, cellHeight * scale * 3, ORANGE);
+    DrawRectangle(pos.x + x * cellWidth * scale, pos.y + y * cellHeight * scale, cellWidth * scale, cellHeight * scale, RED);
 
-    for (int i = 0; i < gridWidth; i++) {
-        for (int n = 0; n < gridHeight; n++) {
-            DrawRectangleLines(round(m_pos.x + i * cellWidth), round(m_pos.y + n * cellHeight), cellWidth, cellHeight, BLACK);
-        }
+    for (int i = 1; i < gridWidth; i++) {
+        DrawLine(pos.x + i * cellWidth * scale, pos.y, pos.x + i * cellWidth * scale, pos.y + size.y * scale, BLACK);
+    }
+    for (int i = 1; i < gridHeight; i++) {
+        DrawLine(pos.x, pos.y + i * cellHeight * scale, pos.x + size.x * scale, pos.y + i * cellHeight * scale, BLACK);
     }
 
-    DrawRectangleLines(m_pos.x, m_pos.y, m_size.x, m_size.y, BLUE);
+    DrawRectangleLines(pos.x, pos.y, size.x * scale, size.y * scale, BLACK);
 
     //for (int i = 0; i < hashList.getCount(); i++) {
     //    bool isNearby = false;

@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "Particle.h"
 #include "Array.h"
+#include "SpatialHashGrid.h"
 
 class Simulation {
 private:
@@ -16,12 +17,16 @@ private:
     float targetDensity;
     float pressureMultiplier;
     float timeMultiplier;
+    float mouseInteractRadius;
+    float mouseInteractForce;
 
     float defaultMass;
     float defaultRadius;
     Array<Particle> particles;
     Array<Vector2> projectedPositions;
     Array<float> densities;
+
+    SpatialHashGrid spatialHash;
 
 public:
     Simulation(Vector4 _bounds);
@@ -40,7 +45,7 @@ public:
     float calculateDensity(Vector2 pos);
     float convertDensityToPressure(float density);
     float calculateSharedPressure(float densityA, float densityB);
-    Vector2 calculateGradientVec(Vector2 pos);
+    Vector2 calculateGradientVec(int particleID);
 
     void update(float deltaTime);
     void draw();

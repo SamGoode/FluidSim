@@ -245,12 +245,20 @@ public:
     }
 
     void clear() {
-        delete[] ptr;
-        ptr = new T[capacity];
+        //delete[] ptr;
+        //ptr = new T[capacity];
+
+        for (int i = 0; i < count; i++) {
+            ptr[i] = T();
+        }
     }
 
     void clear(T defaultValue) {
-        delete[] ptr;
-        ptr = new T[capacity]{ defaultValue };
+        //delete[] ptr;
+        //ptr = new T[capacity] (defaultValue);
+
+        for (int i = 0; i < count; i++) {
+            ptr[i] = defaultValue;
+        }
     }
 };

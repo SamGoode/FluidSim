@@ -8,7 +8,7 @@ int main() {
 
     InitWindow(screenWidth, screenHeight, "Smooth Particle Hydrodynamics Sim");
 
-    //SetTargetFPS(240);
+    //SetTargetFPS(120);
 
     int seed = 844134593;
     srand(seed);
@@ -49,9 +49,9 @@ int main() {
         DrawText(smoothing.c_str(), 10, 80, 20, BLUE);
         std::string density = std::to_string(sim.calculateDensity(mouseSimPos));
         DrawText(density.c_str(), 10, 110, 20, BLUE);
-        Vector2 gradientVec = sim.calculateGradientVec(mouseSimPos);
-        std::string gradient = std::to_string(gradientVec.x) + "," + std::to_string(gradientVec.y);
-        DrawText(gradient.c_str(), 10, 130, 20, BLUE);
+        //Vector2 gradientVec = sim.calculateGradientVec(mouseSimPos);
+        //std::string gradient = std::to_string(gradientVec.x) + "," + std::to_string(gradientVec.y);
+        //DrawText(gradient.c_str(), 10, 130, 20, BLUE);
 
         EndDrawing();
     }

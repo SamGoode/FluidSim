@@ -5,8 +5,7 @@
 
 class SpatialHashGrid {
 private:
-    Vector2 m_pos;
-    Vector2 m_size;
+    Vector2 size;
     int gridWidth;
     int gridHeight;
     float cellWidth;
@@ -16,24 +15,24 @@ private:
     int hashOffsets[9];
     // (particle ID, cell ID/hash)
     Array<int2> hashList;
-    Array<int> startIndices;
-    Array<int> endIndices;
+    // (start Index, end Index)
+    Array<int2> indexLookup;
     Array<bool> dirty;
     Array<int> tempIDs;
 
 public:
     SpatialHashGrid() {}
-    SpatialHashGrid(Vector2 _pos, Vector2 _size, int _gridWidth, int _gridHeight);
+    SpatialHashGrid(Vector2 _size, int _gridWidth, int _gridHeight);
+    SpatialHashGrid(Vector2 _size, float _cellWidth, float _cellHeight);
 
     const Array<int2>& getHashList() { return hashList; }
-    const Array<int>& getStartIndices() { return startIndices; }
-    const Array<int>& getEndIndices() { return endIndices; }
+    const Array<int2>& getIndexLookup() { return indexLookup; }
 
     void setCellDirty(int cellHash) { dirty[cellHash] = true; }
     bool isCellDirty(int cellHash) { return dirty[cellHash]; }
 
     bool isValidCellPos(int2 cellPos) { return (cellPos.x >= 0 && cellPos.x < gridWidth && cellPos.y >= 0 && cellPos.y < gridHeight); }
-    bool isValidPos(Vector2 pos) { return (pos.x >= m_pos.x && pos.x < m_pos.x + m_size.x && pos.y >= m_pos.y && pos.y < m_pos.y + m_size.y); }
+    //bool isValidPos(Vector2 pos) { return (pos.x >= m_pos.x && pos.x < m_pos.x + m_size.x && pos.y >= m_pos.y && pos.y < m_pos.y + m_size.y); }
     int2 getCellPos(int cellHash) { return { cellHash % gridWidth, cellHash / gridWidth }; }
     int2 getCellPos(Vector2 pos);
 
@@ -45,7 +44,7 @@ public:
 
     const Array<int>& findWithin(int cellHash);
     const Array<int>& findNearby(int centreCellHash);
-    const Array<int>& findNearby(int2 cellPos);
+    Array<int> findNearby(int2 cellPos);
 
-    void draw();
+    void draw(Vector2 pos, float scale, Vector2 testPos);
 };

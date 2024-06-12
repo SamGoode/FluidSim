@@ -8,22 +8,31 @@ int main() {
 
     InitWindow(screenWidth, screenHeight, "Smooth Particle Hydrodynamics Sim");
 
-    SetTargetFPS(240);
+    //SetTargetFPS(240);
 
     int seed = 844134593;
     srand(seed);
 
     Simulation sim({ 600, 200, (float)screenWidth - 600, (float)screenHeight - 200 });
+    sim.update(0.000001);
+
+    bool paused = true;
 
     while (!WindowShouldClose()) {
         // Updates
         float delta = GetFrameTime();
 
+        if (IsKeyReleased(KEY_SPACE)) {
+            paused = !paused;
+        }
+
         Vector2 mousePos = GetMousePosition();
         Vector4 bounds = sim.getBounds();
         Vector2 mouseSimPos = { mousePos.x - bounds.x, mousePos.y - bounds.y };
 
-        sim.update(delta);
+        if (!paused) {
+            sim.update(delta);
+        }
 
         // Drawing
         BeginDrawing();

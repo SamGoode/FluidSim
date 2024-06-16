@@ -42,7 +42,7 @@ public:
 
     static float smoothing(float radius, float dist);
     static float smoothingGradient(float radius, float dist);
-    float calculateDensity(Vector2 pos);
+    float calculateDensity(int particleID);
     float convertDensityToPressure(float density);
     float calculateSharedPressure(float densityA, float densityB);
     Vector2 calculateGradientVec(int particleID);

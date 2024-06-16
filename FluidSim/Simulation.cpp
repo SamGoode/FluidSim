@@ -6,18 +6,18 @@
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
     // scale is pixels/unit
-    scale = 8;
+    scale = 6;
 
     gravity = { 0, 1 };
     collisionDampening = 0.1;
 
     showSmoothingRadius = false;
-    smoothingRadius = 2;
+    smoothingRadius = 1.5f;
     targetDensity = smoothing(smoothingRadius, 0);
     pressureMultiplier = 100;
     timeMultiplier = 4;
     mouseInteractRadius = 5;
-    mouseInteractForce = 10;
+    mouseInteractForce = 15;
 
     defaultMass = 1;
     defaultRadius = 0.5;
@@ -38,10 +38,10 @@ Simulation::Simulation(Vector4 _bounds) {
     //    particles[i] = { defaultMass, defaultRadius, position, vel };
     //}
 
-    particles = Array<Particle>(1024);
+    particles = Array<Particle>(2048);
     // initiate particles in a square formation
     for (int i = 0; i < particles.getCount(); i++) {
-        particles[i] = { defaultMass, defaultRadius, {10 + (float)(i % 32) * defaultRadius * 2, 10 + (float)(i / 32) * defaultRadius * 2}, {0, 0} };
+        particles[i] = { defaultMass, defaultRadius, {10 + (float)(i % 64) * defaultRadius * 2, 30 + (float)(i / 64) * defaultRadius * 2}, {0, 0} };
     }
 
     projectedPositions = Array<Vector2>(particles.getCount());
@@ -56,10 +56,10 @@ float Simulation::smoothing(float radius, float dist) {
         return 0;
     }
 
-    float volume = pow(radius, 5) * PI * 0.1;
-    float difference = std::max(0.f, radius - dist);
-    float value = difference * difference * difference;
-    return value / volume;
+    //float volume = pow(radius, 5) * PI * 0.1;
+    float difference = radius - dist;//std::max(0.f, radius - dist);
+    float value = (difference * difference) / (radius * radius);
+    return value;
 }
 
 // (r-d)^3
@@ -68,14 +68,17 @@ float Simulation::smoothingGradient(float radius, float dist) {
         return 0;
     }
     
-    float difference = radius - dist;
-    float gradient = -(30 * difference * difference) / (PI * pow(radius, 5));
+    //float difference = radius - dist;
+    //float gradient = -(30 * difference * difference) / (PI * pow(radius, 5));
+
+    float gradient = (2 * (dist - radius)) / (radius * radius);
     return gradient;
 }
 
 // calculates density level at a particle's position
-float Simulation::calculateDensity(Vector2 pos) {
+float Simulation::calculateDensity(int particleID) {
     float density = 0;
+    Vector2 pos = projectedPositions[particleID];
 
     Array<int> nearbyIDs = spatialHash.findNearby(spatialHash.getCellPos(pos));
     for (int i = 0; i < nearbyIDs.getCount(); i++) {
@@ -84,10 +87,12 @@ float Simulation::calculateDensity(Vector2 pos) {
     }
 
     return density;
+
+
 }
 
 float Simulation::convertDensityToPressure(float density) {
-    float densityError = density - targetDensity;
+    float densityError = std::max(0.f, density - targetDensity);
     float pressure = densityError * pressureMultiplier;
     return pressure;
 }
@@ -123,7 +128,7 @@ Vector2 Simulation::calculateGradientVec(int particleID) {
         }
         else {
             // normalised direction vector
-            dir = Vector2Divide(pointToParticle, dist);
+            dir = pointToParticle / dist;
         }
 
         // magnitude of gradient vector
@@ -158,17 +163,81 @@ void Simulation::update(float deltaTime) {
     spatialHash.sortByCellHash();
     spatialHash.generateLookup();
 
+    Array<int2> hashList = spatialHash.getHashList();
+    int previousCellHash = -1;
+    Array<int> nearbyIDs;
+    for (int i = 0; i < hashList.getCount(); i++) {
+        if (hashList[i].y != previousCellHash) {
+            previousCellHash = hashList[i].y;
+            nearbyIDs = spatialHash.findNearby(previousCellHash);
+        }
+
+        Vector2 pos = projectedPositions[hashList[i].x];
+        float density = 0;
+        for (int n = 0; n < nearbyIDs.getCount(); n++) {
+            float dist = Vector2Distance(pos, projectedPositions[nearbyIDs[n]]);
+            density += smoothing(smoothingRadius, dist) * particles[nearbyIDs[n]].mass;
+        }
+
+        densities[hashList[i].x] = density;
+    }
+
     // update densities cache
-    for (int i = 0; i < particles.getCount(); i++) {
-        densities[i] = calculateDensity(projectedPositions[i]);
+    //for (int i = 0; i < particles.getCount(); i++) {
+    //    densities[i] = calculateDensity(i);
+    //}
+
+    previousCellHash = -1;
+    nearbyIDs.clear();
+    for (int i = 0; i < hashList.getCount(); i++) {
+        if (hashList[i].y != previousCellHash) {
+            previousCellHash = hashList[i].y;
+            nearbyIDs = spatialHash.findNearby(previousCellHash);
+        }
+
+        Vector2 gradientVec = { 0, 0 };
+        float density = densities[hashList[i].x];
+        Vector2 pos = projectedPositions[hashList[i].x];
+
+        for (int n = 0; n < nearbyIDs.getCount(); n++) {
+            if (hashList[i].x == nearbyIDs[n]) {
+                continue;
+            }
+
+            Vector2 pointToParticle = projectedPositions[nearbyIDs[n]] - pos;
+            float dist = Vector2Length(pointToParticle);
+
+            Vector2 dir;
+            // generate random direction vector if other particle is right on top of this one
+            if (dist == 0) {
+                float randAngle = (rand() * 2 * PI) / RAND_MAX;
+                dir = { (float)cos(randAngle), (float)sin(randAngle) };
+            }
+            else {
+                // normalised direction vector
+                dir = pointToParticle / dist;
+            }
+
+            // magnitude of gradient vector
+            float magnitude = smoothingGradient(smoothingRadius, dist);
+            float mass = particles[nearbyIDs[n]].mass;
+
+            float sharedPressure = calculateSharedPressure(density, densities[nearbyIDs[n]]);
+
+            // because of how we compute gradient vector the direction automatically descends
+            gradientVec += (dir * magnitude) * (sharedPressure * (mass / density));
+        }
+        
+        Vector2 forceVec = gradientVec / particles[hashList[i].x].mass;
+        particles[hashList[i].x].vel += forceVec * (deltaTime * timeMultiplier);
     }
 
     // apply pressure vectors to particles
-    for (int particleID = 0; particleID < particles.getCount(); particleID++) {
-        Vector2 gradientVec = calculateGradientVec(particleID);
-        Vector2 forceVec = gradientVec / particles[particleID].mass;
-        particles[particleID].vel += forceVec * (deltaTime * timeMultiplier);
-    }
+    //for (int particleID = 0; particleID < particles.getCount(); particleID++) {
+    //    Vector2 gradientVec = calculateGradientVec(particleID);
+    //    Vector2 forceVec = gradientVec / particles[particleID].mass;
+    //    particles[particleID].vel += forceVec * (deltaTime * timeMultiplier);
+    //}
 
     if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
         for (int i = 0; i < particles.getCount(); i++) {
@@ -220,6 +289,11 @@ void Simulation::update(float deltaTime) {
         }
         
         // update particle positions
+        //particles[i].pos += particles[i].vel * (deltaTime * timeMultiplier);
+    }
+
+    // update particle positions
+    for (int i = 0; i < particles.getCount(); i++) {
         particles[i].pos += particles[i].vel * (deltaTime * timeMultiplier);
     }
 }
@@ -236,7 +310,7 @@ void Simulation::draw() {
 
     for (int i = 0; i < particles.getCount(); i++) {
         Vector2 screenPos = convertToScreenPos(particles[i].pos);
-        float densityError = std::clamp((densities[i] / targetDensity) / 2.8f, 0.f, 1.f);
+        float densityError = std::clamp((densities[i] / targetDensity) / 2.5f, 0.f, 1.f);
         
         float r = (1 - abs(densityError - 1)) * 255;
         float g = (1 - abs(densityError - 0.5) * 2) * 0.7f * 255;
@@ -244,8 +318,8 @@ void Simulation::draw() {
 
         Color densityColor = { r, g, b, 255};
         
-        DrawCircle(screenPos.x, screenPos.y, particles[i].radius * scale, densityColor);
-        //DrawRectangle(screenPos.x - (particles[i].radius * scale), screenPos.y - (particles[i].radius * scale), 2 * particles[i].radius * scale, 2 * particles[i].radius * scale, densityColor);
+        //DrawCircle(screenPos.x, screenPos.y, particles[i].radius * scale, densityColor);
+        DrawRectangle(screenPos.x - (particles[i].radius * scale), screenPos.y - (particles[i].radius * scale), 2 * particles[i].radius * scale, 2 * particles[i].radius * scale, densityColor);
     }
 
     // spatial hash testing

@@ -58,7 +58,10 @@ public:
             }
         }
 
-        ptr = new T[capacity]{ defaultValue };
+        ptr = new T[capacity];
+        for (int i = 0; i < count; i++) {
+            ptr[i] = defaultValue;
+        }
     }
 
     Array(unsigned int initCount, unsigned int initCapacity, T defaultValue) {

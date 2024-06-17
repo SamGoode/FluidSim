@@ -1,41 +1,30 @@
 #version 430
 
-// Game of Life logic shader
+// particle physics update
 
-#define GOL_WIDTH 768
+#define BUFFER_SIZE 256
 
-layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+// update 64 particles at a time
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-layout(std430, binding = 1) readonly restrict buffer golLayout {
-    uint golBuffer[];       // golBuffer[x, y] = golBuffer[x + gl_NumWorkGroups.x * y]
+struct particleInfo {
+    vec2 pos;
+    vec2 vel;
+    float deltaTime;
 };
 
-layout(std430, binding = 2) writeonly restrict buffer golLayout2 {
-    uint golBufferDest[];   // golBufferDest[x, y] = golBufferDest[x + gl_NumWorkGroups.x * y]
+layout(std430, binding = 1) readonly restrict buffer bufferLayout {
+    particleInfo inBuffer[];
 };
 
-#define fetchGol(x, y) ((((x) < 0) || ((y) < 0) || ((x) > GOL_WIDTH) || ((y) > GOL_WIDTH)) \
-    ? (0) \
-    : golBuffer[(x) + GOL_WIDTH * (y)])
+layout(std430, binding = 2) writeonly restrict buffer bufferLayout2 {
+    particleInfo outBuffer[];
+};
 
-#define setGol(x, y, value) golBufferDest[(x) + GOL_WIDTH*(y)] = value
+void main() {
+    uint id = gl_GlobalInvocationID.x;
 
-void main()
-{
-    uint neighbourCount = 0;
-    uint x = gl_GlobalInvocationID.x;
-    uint y = gl_GlobalInvocationID.y;
-
-    neighbourCount += fetchGol(x - 1, y - 1);   // Top left
-    neighbourCount += fetchGol(x, y - 1);       // Top middle
-    neighbourCount += fetchGol(x + 1, y - 1);   // Top right
-    neighbourCount += fetchGol(x - 1, y);       // Left
-    neighbourCount += fetchGol(x + 1, y);       // Right
-    neighbourCount += fetchGol(x - 1, y + 1);   // Bottom left
-    neighbourCount += fetchGol(x, y + 1);       // Bottom middle   
-    neighbourCount += fetchGol(x + 1, y + 1);   // Bottom right
-
-    if (neighbourCount == 3) setGol(x, y, 1);
-    else if (neighbourCount == 2) setGol(x, y, fetchGol(x, y));
-    else setGol(x, y, 0);
+    outBuffer[id].pos = inBuffer[id].pos + inBuffer[id].vel * inBuffer[id].deltaTime;
+    outBuffer[id].vel = vec2(0, 0);
+    outBuffer[id].deltaTime = 0;
 }

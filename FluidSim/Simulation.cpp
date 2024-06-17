@@ -1,12 +1,21 @@
 #include "Simulation.h"
 #include "raymath.h"
+#include "rlgl.h"
 #include "RaylibOverloads.h"
 #include <algorithm>
+
+#define BUFFER_SIZE 256
+
+typedef struct particleInfo {
+    Vector2 pos;
+    Vector2 vel;
+    float deltaTime;
+};
 
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
     // scale is pixels/unit
-    scale = 6;
+    scale = 10;
 
     gravity = { 0, 1 };
     collisionDampening = 0.1;
@@ -15,7 +24,7 @@ Simulation::Simulation(Vector4 _bounds) {
     smoothingRadius = 1.5f;
     targetDensity = smoothing(smoothingRadius, 0);
     pressureMultiplier = 100;
-    timeMultiplier = 4;
+    timeMultiplier = 1;
     mouseInteractRadius = 5;
     mouseInteractForce = 15;
 
@@ -38,16 +47,30 @@ Simulation::Simulation(Vector4 _bounds) {
     //    particles[i] = { defaultMass, defaultRadius, position, vel };
     //}
 
-    particles = Array<Particle>(2048);
+    particles = Array<Particle>(256);
     // initiate particles in a square formation
     for (int i = 0; i < particles.getCount(); i++) {
-        particles[i] = { defaultMass, defaultRadius, {10 + (float)(i % 64) * defaultRadius * 2, 30 + (float)(i / 64) * defaultRadius * 2}, {0, 0} };
+        particles[i] = { defaultMass, defaultRadius, {10 + (float)(i % 16) * defaultRadius * 2, 10 + (float)(i / 16) * defaultRadius * 2}, {0, 0} };
     }
 
     projectedPositions = Array<Vector2>(particles.getCount());
     densities = Array<float>(particles.getCount());
 
     spatialHash = SpatialHashGrid({getScaledWidth(), getScaledHeight()}, smoothingRadius, smoothingRadius);
+
+    char* particleUpdateCode = LoadFileText("particleUpdate.glsl");
+    unsigned int particleUpdateShader = rlCompileShader(particleUpdateCode, RL_COMPUTE_SHADER);
+    particleUpdateProgram = rlLoadComputeShaderProgram(particleUpdateShader);
+    UnloadFileText(particleUpdateCode);
+
+    inSsbo = rlLoadShaderBuffer(BUFFER_SIZE * sizeof(particleInfo), NULL, RL_DYNAMIC_COPY);
+    outSsbo = rlLoadShaderBuffer(BUFFER_SIZE * sizeof(particleInfo), NULL, RL_DYNAMIC_COPY);
+}
+
+Simulation::~Simulation() {
+    rlUnloadShaderBuffer(inSsbo);
+    rlUnloadShaderBuffer(outSsbo);
+    rlUnloadShaderProgram(particleUpdateProgram);
 }
 
 // smoothing function
@@ -143,7 +166,6 @@ Vector2 Simulation::calculateGradientVec(int particleID) {
     return gradientVec;
 }
 
-//force = change in mass * velocity / change in time
 void Simulation::update(float deltaTime) {
     if (deltaTime > 0.01) {
         deltaTime = 0.01;
@@ -293,8 +315,33 @@ void Simulation::update(float deltaTime) {
     }
 
     // update particle positions
-    for (int i = 0; i < particles.getCount(); i++) {
-        particles[i].pos += particles[i].vel * (deltaTime * timeMultiplier);
+    //for (int i = 0; i < particles.getCount(); i++) {
+    //    particles[i].pos += particles[i].vel * (deltaTime * timeMultiplier);
+    //}
+
+    particleInfo particleBuffer[256];
+    for (int i = 0; i < 256; i++) {
+        particleBuffer[i] = {
+            particles[i].pos,
+            particles[i].vel,
+            deltaTime
+        };
+    }
+
+    // loading particle data into shader buffer
+    rlUpdateShaderBuffer(inSsbo, &particleBuffer, 256*sizeof(particleInfo), 0);
+
+    // processing particle data using compute shader
+    rlEnableShader(particleUpdateProgram);
+    rlBindShaderBuffer(inSsbo, 1);
+    rlBindShaderBuffer(outSsbo, 2);
+    rlComputeShaderDispatch(256, 1, 1);
+    rlDisableShader();
+
+    rlReadShaderBuffer(outSsbo, &particleBuffer, 256*sizeof(particleInfo), 0);
+
+    for (int i = 0; i < 256; i++) {
+        particles[i].pos = particleBuffer[i].pos;
     }
 }
 

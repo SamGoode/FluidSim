@@ -28,8 +28,13 @@ private:
 
     SpatialHashGrid spatialHash;
 
+    unsigned int particleUpdateProgram;
+    unsigned int inSsbo;
+    unsigned int outSsbo;
+
 public:
     Simulation(Vector4 _bounds);
+    ~Simulation();
 
     Vector4 getBounds() { return bounds; }
     float getWidth() { return bounds.z - bounds.x; }

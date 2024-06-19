@@ -4,7 +4,7 @@
 
 #define BUFFER_SIZE 16384
 // process 1024 particles at a time
-#define WORKGROUP_SIZE 1024
+#define WORKGROUP_SIZE 512
 
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 

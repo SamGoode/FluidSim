@@ -6,7 +6,7 @@
 
 // must be larger than particle count
 #define BUFFER_SIZE 16384
-#define WORKGROUP_SIZE 1024
+#define WORKGROUP_SIZE 512
 
 typedef struct particleInfo {
     Vector2 pos;
@@ -78,7 +78,7 @@ Simulation::Simulation(Vector4 _bounds) {
     particleUpdateProgram = rlLoadComputeShaderProgram(particleUpdateShader);
     UnloadFileText(particleUpdateCode);
 
-    char* gravityProjectCode = LoadFileText("particleUpdate.glsl");
+    char* gravityProjectCode = LoadFileText("particleGravityProject.glsl");
     unsigned int gravityProjectShader = rlCompileShader(gravityProjectCode, RL_COMPUTE_SHADER);
     gravityProjectProgram = rlLoadComputeShaderProgram(gravityProjectShader);
 
@@ -189,15 +189,15 @@ void Simulation::update(float deltaTime) {
         deltaTime = projectedTime;
     }
 
-    // gravity application
-    for (int i = 0; i < particles.getCount(); i++) {
-        particles[i].vel += gravity * (deltaTime * timeMultiplier);
-    }
+    //// gravity application
+    //for (int i = 0; i < particles.getCount(); i++) {
+    //    particles[i].vel += gravity * (deltaTime * timeMultiplier);
+    //}
 
-    // update projected positions cache
-    for (int i = 0; i < particles.getCount(); i++) {
-        projectedPositions[i] = particles[i].pos + (particles[i].vel * (projectedTime * timeMultiplier));
-    }
+    //// update projected positions cache
+    //for (int i = 0; i < particles.getCount(); i++) {
+    //    projectedPositions[i] = particles[i].pos + (particles[i].vel * (projectedTime * timeMultiplier));
+    //}
 
     bufferGravityProject particleBufferA;
     for (int i = 0; i < particles.getCount(); i++) {
@@ -212,15 +212,15 @@ void Simulation::update(float deltaTime) {
     particleBufferA.timeMultiplier = timeMultiplier;
 
     // loading particle data into shader buffer
-    rlUpdateShaderBuffer(ssboUpdate, &particleBufferA, sizeof(bufferUpdate), 0);
+    rlUpdateShaderBuffer(ssboGravityProject, &particleBufferA, sizeof(bufferGravityProject), 0);
 
     // processing particle data using compute shader
-    rlEnableShader(particleUpdateProgram);
-    rlBindShaderBuffer(ssboUpdate, 1);
+    rlEnableShader(gravityProjectProgram);
+    rlBindShaderBuffer(ssboGravityProject, 1);
     rlComputeShaderDispatch(BUFFER_SIZE / WORKGROUP_SIZE, 1, 1);
     rlDisableShader();
 
-    rlReadShaderBuffer(ssboUpdate, &particleBufferA, sizeof(bufferUpdate), 0);
+    rlReadShaderBuffer(ssboGravityProject, &particleBufferA, sizeof(bufferGravityProject), 0);
 
     for (int i = 0; i < particles.getCount(); i++) {
         particles[i].vel = particleBufferA.buffer[i].vel;

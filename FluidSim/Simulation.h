@@ -29,8 +29,7 @@ private:
     SpatialHashGrid spatialHash;
 
     unsigned int particleUpdateProgram;
-    unsigned int inSsbo;
-    unsigned int outSsbo;
+    unsigned int ssbo;
 
 public:
     Simulation(Vector4 _bounds);

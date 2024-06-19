@@ -15,7 +15,7 @@ int main() {
     srand(seed);
 
     Simulation sim({ 500, 200, (float)screenWidth - 500, (float)screenHeight - 200 });
-    //sim.update(0.000001);
+    sim.update(0.000001);
 
     bool paused = true;
 

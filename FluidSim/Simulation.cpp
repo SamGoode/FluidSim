@@ -4,18 +4,25 @@
 #include "RaylibOverloads.h"
 #include <algorithm>
 
-#define BUFFER_SIZE 256
+// must be larger than particle count
+#define BUFFER_SIZE 8192
+#define WORKGROUP_SIZE 1024
 
 typedef struct particleInfo {
     Vector2 pos;
     Vector2 vel;
+};
+
+typedef struct bufferUpdate {
+    particleInfo buffer[BUFFER_SIZE];
     float deltaTime;
+    float timeMultiplier;
 };
 
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
     // scale is pixels/unit
-    scale = 10;
+    scale = 4;
 
     gravity = { 0, 1 };
     collisionDampening = 0.1;
@@ -24,8 +31,8 @@ Simulation::Simulation(Vector4 _bounds) {
     smoothingRadius = 1.5f;
     targetDensity = smoothing(smoothingRadius, 0);
     pressureMultiplier = 100;
-    timeMultiplier = 1;
-    mouseInteractRadius = 5;
+    timeMultiplier = 4;
+    mouseInteractRadius = 10;
     mouseInteractForce = 15;
 
     defaultMass = 1;
@@ -47,10 +54,10 @@ Simulation::Simulation(Vector4 _bounds) {
     //    particles[i] = { defaultMass, defaultRadius, position, vel };
     //}
 
-    particles = Array<Particle>(256);
+    particles = Array<Particle>(8192);
     // initiate particles in a square formation
     for (int i = 0; i < particles.getCount(); i++) {
-        particles[i] = { defaultMass, defaultRadius, {10 + (float)(i % 16) * defaultRadius * 2, 10 + (float)(i / 16) * defaultRadius * 2}, {0, 0} };
+        particles[i] = { defaultMass, defaultRadius, {10 + (float)(i % 128) * defaultRadius * 2, 10 + (float)(i / 128) * defaultRadius * 2}, {0, 0} };
     }
 
     projectedPositions = Array<Vector2>(particles.getCount());
@@ -63,13 +70,11 @@ Simulation::Simulation(Vector4 _bounds) {
     particleUpdateProgram = rlLoadComputeShaderProgram(particleUpdateShader);
     UnloadFileText(particleUpdateCode);
 
-    inSsbo = rlLoadShaderBuffer(BUFFER_SIZE * sizeof(particleInfo), NULL, RL_DYNAMIC_COPY);
-    outSsbo = rlLoadShaderBuffer(BUFFER_SIZE * sizeof(particleInfo), NULL, RL_DYNAMIC_COPY);
+    ssbo = rlLoadShaderBuffer(sizeof(bufferUpdate), NULL, RL_DYNAMIC_COPY);
 }
 
 Simulation::~Simulation() {
-    rlUnloadShaderBuffer(inSsbo);
-    rlUnloadShaderBuffer(outSsbo);
+    rlUnloadShaderBuffer(ssbo);
     rlUnloadShaderProgram(particleUpdateProgram);
 }
 
@@ -319,29 +324,29 @@ void Simulation::update(float deltaTime) {
     //    particles[i].pos += particles[i].vel * (deltaTime * timeMultiplier);
     //}
 
-    particleInfo particleBuffer[256];
-    for (int i = 0; i < 256; i++) {
-        particleBuffer[i] = {
+    bufferUpdate particleBuffer;
+    for (int i = 0; i < particles.getCount(); i++) {
+        particleBuffer.buffer[i] = {
             particles[i].pos,
-            particles[i].vel,
-            deltaTime
+            particles[i].vel
         };
     }
+    particleBuffer.deltaTime = deltaTime;
+    particleBuffer.timeMultiplier = timeMultiplier;
 
     // loading particle data into shader buffer
-    rlUpdateShaderBuffer(inSsbo, &particleBuffer, 256*sizeof(particleInfo), 0);
+    rlUpdateShaderBuffer(ssbo, &particleBuffer, sizeof(bufferUpdate), 0);
 
     // processing particle data using compute shader
     rlEnableShader(particleUpdateProgram);
-    rlBindShaderBuffer(inSsbo, 1);
-    rlBindShaderBuffer(outSsbo, 2);
-    rlComputeShaderDispatch(256, 1, 1);
+    rlBindShaderBuffer(ssbo, 1);
+    rlComputeShaderDispatch(BUFFER_SIZE/WORKGROUP_SIZE, 1, 1);
     rlDisableShader();
 
-    rlReadShaderBuffer(outSsbo, &particleBuffer, 256*sizeof(particleInfo), 0);
+    rlReadShaderBuffer(ssbo, &particleBuffer, sizeof(bufferUpdate), 0);
 
-    for (int i = 0; i < 256; i++) {
-        particles[i].pos = particleBuffer[i].pos;
+    for (int i = 0; i < particles.getCount(); i++) {
+        particles[i].pos = particleBuffer.buffer[i].pos;
     }
 }
 
@@ -362,6 +367,12 @@ void Simulation::draw() {
         float r = (1 - abs(densityError - 1)) * 255;
         float g = (1 - abs(densityError - 0.5) * 2) * 0.7f * 255;
         float b = (1 - abs(densityError - 0)) * 255;
+
+        //float densityError = std::max((densities[i] - targetDensity), 0.f) * 255 * 2;
+
+        //float r = std::max(0.f, std::min(255.f, densityError));
+        //float g = std::max(0.f, std::min(255.f, densityError - 255));
+        //float b = std::max(0.f, std::min(255.f, densityError - 511));
 
         Color densityColor = { r, g, b, 255};
         

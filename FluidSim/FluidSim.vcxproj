@@ -153,6 +153,7 @@
     <ClInclude Include="SpatialHashGrid.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="particleGravityProject.glsl" />
     <None Include="particleUpdate.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

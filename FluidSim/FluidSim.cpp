@@ -14,7 +14,7 @@ int main() {
     int seed = 844134593;
     srand(seed);
 
-    Simulation sim({ 500, 200, (float)screenWidth - 500, (float)screenHeight - 200 });
+    Simulation sim({ 400, 100, (float)screenWidth - 400, (float)screenHeight - 100 });
     sim.update(0.000001);
 
     bool paused = true;

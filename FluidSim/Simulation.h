@@ -23,13 +23,16 @@ private:
     float defaultMass;
     float defaultRadius;
     Array<Particle> particles;
+    float projectedTime;
     Array<Vector2> projectedPositions;
     Array<float> densities;
 
     SpatialHashGrid spatialHash;
 
     unsigned int particleUpdateProgram;
-    unsigned int ssbo;
+    unsigned int gravityProjectProgram;
+    unsigned int ssboUpdate;
+    unsigned int ssboGravityProject;
 
 public:
     Simulation(Vector4 _bounds);

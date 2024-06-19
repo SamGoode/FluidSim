@@ -17,7 +17,6 @@ SpatialHashGrid::SpatialHashGrid(Vector2 _size, int _gridWidth, int _gridHeight)
 
     hashList = Array<int2>(0);
     indexLookup = Array<int2>(cellCount);
-    dirty = Array<bool>(cellCount);
     tempIDs = Array<int>(0);
 }
 
@@ -36,7 +35,6 @@ SpatialHashGrid::SpatialHashGrid(Vector2 _size, float _cellWidth, float _cellHei
 
     hashList = Array<int2>(0);
     indexLookup = Array<int2>(cellCount);
-    dirty = Array<bool>(cellCount);
     tempIDs = Array<int>(0);
 }
 
@@ -79,7 +77,6 @@ void SpatialHashGrid::sortByCellHash() {
 
 void SpatialHashGrid::generateLookup() {
     indexLookup.clear({ -1, -1 });
-    dirty.clear(false);
 
     if (hashList.getCount() == 0) {
         return;
@@ -115,7 +112,7 @@ const Array<int>& SpatialHashGrid::findWithin(int cellHash) {
     int startIndex = indexLookup[cellHash].x;
     int endIndex = indexLookup[cellHash].y;
 
-    if (startIndex < 0 || endIndex < 0) {
+    if (startIndex < 0) {
         return tempIDs;
     }
 
@@ -137,14 +134,10 @@ const Array<int>& SpatialHashGrid::findNearby(int centreCellHash) {
 
         int cellHash = centreCellHash + hashOffsets[i];
 
-        if (dirty[cellHash]) {
-            continue;
-        }
-
         int startIndex = indexLookup[cellHash].x;
         int endIndex = indexLookup[cellHash].y;
 
-        if (startIndex < 0 || endIndex < 0) {
+        if (startIndex < 0) {
             continue;
         }
 
@@ -169,7 +162,7 @@ Array<int> SpatialHashGrid::findNearby(int2 cellPos) {
 
         int startIndex = indexLookup[cellHash].x;
         int endIndex = indexLookup[cellHash].y;
-        if (startIndex < 0 || endIndex < 0) {
+        if (startIndex < 0) {
             continue;
         }
 

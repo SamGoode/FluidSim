@@ -17,7 +17,6 @@ private:
     Array<int2> hashList;
     // (start Index, end Index)
     Array<int2> indexLookup;
-    Array<bool> dirty;
     Array<int> tempIDs;
 
 public:
@@ -27,9 +26,6 @@ public:
 
     const Array<int2>& getHashList() { return hashList; }
     const Array<int2>& getIndexLookup() { return indexLookup; }
-
-    void setCellDirty(int cellHash) { dirty[cellHash] = true; }
-    bool isCellDirty(int cellHash) { return dirty[cellHash]; }
 
     bool isValidCellPos(int2 cellPos) { return (cellPos.x >= 0 && cellPos.x < gridWidth && cellPos.y >= 0 && cellPos.y < gridHeight); }
     //bool isValidPos(Vector2 pos) { return (pos.x >= m_pos.x && pos.x < m_pos.x + m_size.x && pos.y >= m_pos.y && pos.y < m_pos.y + m_size.y); }

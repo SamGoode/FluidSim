@@ -15,11 +15,15 @@ struct particleInfo {
 
 layout(std430, binding = 1) buffer ParticleBuffer {
     particleInfo particles[BUFFER_SIZE];
-    float velScalar;
+    vec2 gravity;
+    float deltaTime;
+    float projectedTime;
+    float timeMultiplier;
 } particleBuffer;
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
 
-    particleBuffer.particles[index].pos = particleBuffer.particles[index].pos + particleBuffer.particles[index].vel * particleBuffer.velScalar;
+    particleBuffer.particles[index].vel = particleBuffer.particles[index].vel + particleBuffer.gravity * particleBuffer.deltaTime * particleBuffer.timeMultiplier;
+    particleBuffer.particles[index].pos = particleBuffer.particles[index].pos + particleBuffer.particles[index].vel * particleBuffer.projectedTime * particleBuffer.timeMultiplier;
 }

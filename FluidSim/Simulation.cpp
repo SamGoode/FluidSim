@@ -8,37 +8,30 @@
 #define BUFFER_SIZE 16384
 #define WORKGROUP_SIZE 512
 
-typedef struct particleInfo {
-    Vector2 pos;
-    Vector2 vel;
-};
-
-typedef struct bufferUpdate {
-    particleInfo buffer[BUFFER_SIZE];
-    float velScalar;
-};
-
-typedef struct bufferGravityProject {
-    particleInfo buffer[BUFFER_SIZE];
+struct SimData {
     Vector2 gravity;
     float deltaTime;
     float projectedTime;
-    float timeMultiplier;
+    float timeDilation;
 };
 
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
     // scale is pixels/unit
     scale = 4;
+    resolution = { getWidth(), getHeight() };
+    Image whiteImage = GenImageColor(getWidth(), getHeight(), WHITE);
+    texture = LoadTextureFromImage(whiteImage);
+    UnloadImage(whiteImage);
 
-    gravity = { 0, 2 };
-    collisionDampening = 0.15;
+    gravity = { 0, 1 };
+    collisionDampening = 0.1;
 
     showSmoothingRadius = false;
     smoothingRadius = 1.5f;
     targetDensity = smoothing(smoothingRadius, 0);
-    pressureMultiplier = 200;
-    timeMultiplier = 2;
+    pressureMultiplier = 150;
+    timeDilation = 2;
     mouseInteractRadius = 10;
     mouseInteractForce = 20;
 
@@ -68,29 +61,45 @@ Simulation::Simulation(Vector4 _bounds) {
     }
 
     projectedPositions = Array<Vector2>(particles.getCount());
-    projectedTime = 1.f / 60.f;
+    projectedTime = 1.f / 120.f;
     densities = Array<float>(particles.getCount());
 
     spatialHash = SpatialHashGrid({getScaledWidth(), getScaledHeight()}, smoothingRadius, smoothingRadius);
 
-    char* particleUpdateCode = LoadFileText("particleUpdate.glsl");
-    unsigned int particleUpdateShader = rlCompileShader(particleUpdateCode, RL_COMPUTE_SHADER);
-    particleUpdateProgram = rlLoadComputeShaderProgram(particleUpdateShader);
-    UnloadFileText(particleUpdateCode);
+    char* updateParticleCode = LoadFileText("updateParticle.glsl");
+    unsigned int updateParticleShader = rlCompileShader(updateParticleCode, RL_COMPUTE_SHADER);
+    updateParticleProgram = rlLoadComputeShaderProgram(updateParticleShader);
+    UnloadFileText(updateParticleCode);
 
-    char* gravityProjectCode = LoadFileText("particleGravityProject.glsl");
-    unsigned int gravityProjectShader = rlCompileShader(gravityProjectCode, RL_COMPUTE_SHADER);
-    gravityProjectProgram = rlLoadComputeShaderProgram(gravityProjectShader);
+    char* gravProjectionCode = LoadFileText("gravProjection.glsl");
+    unsigned int gravProjectionShader = rlCompileShader(gravProjectionCode, RL_COMPUTE_SHADER);
+    gravProjectionProgram = rlLoadComputeShaderProgram(gravProjectionShader);
+    UnloadFileText(gravProjectionCode);
 
-    ssboUpdate = rlLoadShaderBuffer(sizeof(bufferUpdate), NULL, RL_DYNAMIC_COPY);
-    ssboGravityProject = rlLoadShaderBuffer(sizeof(bufferGravityProject), NULL, RL_DYNAMIC_COPY);
+    renderSimShader = LoadShader(NULL, "renderSim.glsl");
+    resUniformLoc = GetShaderLocation(renderSimShader, "resolution");
+
+    particleSSBO = rlLoadShaderBuffer(particles.getCount() * sizeof(Particle), NULL, RL_DYNAMIC_COPY);
+    projectedPositionSSBO = rlLoadShaderBuffer(projectedPositions.getCount() * sizeof(Vector2), NULL, RL_DYNAMIC_COPY);
+    simDataSSBO = rlLoadShaderBuffer(sizeof(SimData), NULL, RL_DYNAMIC_COPY);
+    textureBuffer = Array<Vector4>(getWidth() * getHeight());
+    textureBuffer.clear({1, 1, 1, 0});
+    textureSSBO = rlLoadShaderBuffer(getWidth() * getHeight() * sizeof(Vector4), NULL, RL_DYNAMIC_COPY);
+
+    rlUpdateShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
 }
 
 Simulation::~Simulation() {
-    rlUnloadShaderBuffer(ssboUpdate);
-    rlUnloadShaderBuffer(ssboGravityProject);
-    rlUnloadShaderProgram(particleUpdateProgram);
-    rlUnloadShaderProgram(gravityProjectProgram);
+    rlUnloadShaderBuffer(particleSSBO);
+    rlUnloadShaderBuffer(projectedPositionSSBO);
+    rlUnloadShaderBuffer(simDataSSBO);
+    rlUnloadShaderBuffer(textureSSBO);
+
+    rlUnloadShaderProgram(updateParticleProgram);
+    rlUnloadShaderProgram(gravProjectionProgram);
+
+    UnloadTexture(texture);
+    UnloadShader(renderSimShader);
 }
 
 // smoothing function
@@ -185,47 +194,42 @@ Vector2 Simulation::calculateGradientVec(int particleID) {
 }
 
 void Simulation::update(float deltaTime) {
-    if (deltaTime > projectedTime) {
-        deltaTime = projectedTime;
+    if (deltaTime > 0.017f) {
+        deltaTime = 0.017f;
     }
+
+    SimData simData;
+    simData.gravity = gravity;
+    simData.deltaTime = deltaTime;
+    simData.projectedTime = projectedTime;
+    simData.timeDilation = timeDilation;
+
+    rlUpdateShaderBuffer(simDataSSBO, &simData, sizeof(SimData), 0);
 
     //// gravity application
     //for (int i = 0; i < particles.getCount(); i++) {
-    //    particles[i].vel += gravity * (deltaTime * timeMultiplier);
+    //    particles[i].vel += gravity * (deltaTime * timeDilation);
     //}
 
     //// update projected positions cache
     //for (int i = 0; i < particles.getCount(); i++) {
-    //    projectedPositions[i] = particles[i].pos + (particles[i].vel * (projectedTime * timeMultiplier));
+    //    projectedPositions[i] = particles[i].pos + (particles[i].vel * (projectedTime * timeDilation));
     //}
 
-    bufferGravityProject particleBufferA;
-    for (int i = 0; i < particles.getCount(); i++) {
-        particleBufferA.buffer[i] = {
-            particles[i].pos,
-            particles[i].vel
-        };
-    }
-    particleBufferA.gravity = gravity;
-    particleBufferA.deltaTime = deltaTime;
-    particleBufferA.projectedTime = projectedTime;
-    particleBufferA.timeMultiplier = timeMultiplier;
-
     // loading particle data into shader buffer
-    rlUpdateShaderBuffer(ssboGravityProject, &particleBufferA, sizeof(bufferGravityProject), 0);
+    //rlUpdateShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
 
     // processing particle data using compute shader
-    rlEnableShader(gravityProjectProgram);
-    rlBindShaderBuffer(ssboGravityProject, 1);
+    rlEnableShader(gravProjectionProgram);
+    rlBindShaderBuffer(particleSSBO, 1);
+    rlBindShaderBuffer(simDataSSBO, 2);
+    rlBindShaderBuffer(projectedPositionSSBO, 3);
     rlComputeShaderDispatch(BUFFER_SIZE / WORKGROUP_SIZE, 1, 1);
     rlDisableShader();
 
-    rlReadShaderBuffer(ssboGravityProject, &particleBufferA, sizeof(bufferGravityProject), 0);
-
-    for (int i = 0; i < particles.getCount(); i++) {
-        particles[i].vel = particleBufferA.buffer[i].vel;
-        projectedPositions[i] = particleBufferA.buffer[i].pos;
-    }
+    // unloading data from shader buffer
+    rlReadShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
+    rlReadShaderBuffer(projectedPositionSSBO, projectedPositions.begin(), projectedPositions.getCount() * sizeof(Vector2), 0);
 
     spatialHash.generateHashList(projectedPositions);
     spatialHash.sortByCellHash();
@@ -304,14 +308,14 @@ void Simulation::update(float deltaTime) {
         }
         
         Vector2 forceVec = gradientVec / particles[hashList[i].x].mass;
-        particles[hashList[i].x].vel += forceVec * (deltaTime * timeMultiplier);
+        particles[hashList[i].x].vel += forceVec * (deltaTime * timeDilation);
     }
 
     // apply pressure vectors to particles
     //for (int particleID = 0; particleID < particles.getCount(); particleID++) {
     //    Vector2 gradientVec = calculateGradientVec(particleID);
     //    Vector2 forceVec = gradientVec / particles[particleID].mass;
-    //    particles[particleID].vel += forceVec * (deltaTime * timeMultiplier);
+    //    particles[particleID].vel += forceVec * (deltaTime * timeDilation);
     //}
 
     if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
@@ -322,7 +326,7 @@ void Simulation::update(float deltaTime) {
             if (dist <= mouseInteractRadius) {
                 Vector2 unitDir = MtoP / dist;
                 Vector2 forceVec = unitDir * -mouseInteractForce;
-                particles[i].vel += forceVec * (deltaTime * timeMultiplier);
+                particles[i].vel += forceVec * (deltaTime * timeDilation);
             }
         }
     }
@@ -334,7 +338,7 @@ void Simulation::update(float deltaTime) {
             if (dist <= mouseInteractRadius) {
                 Vector2 unitDir = MtoP / dist;
                 Vector2 forceVec = unitDir * mouseInteractForce;
-                particles[i].vel += forceVec * (deltaTime * timeMultiplier);
+                particles[i].vel += forceVec * (deltaTime * timeDilation);
             }
         }
     }
@@ -367,40 +371,37 @@ void Simulation::update(float deltaTime) {
         }
         
         // update particle positions
-        //projectedPositions[i] += particles[i].vel * (deltaTime * timeMultiplier);
+        //projectedPositions[i] += particles[i].vel * (deltaTime * timeDilation);
     }
 
     // update particle positions
     //for (int i = 0; i < particles.getCount(); i++) {
-    //    particles[i].pos += particles[i].vel * (deltaTime * timeMultiplier);
+    //    particles[i].pos += particles[i].vel * (deltaTime * timeDilation);
     //}
 
-    bufferUpdate particleBuffer;
-    for (int i = 0; i < particles.getCount(); i++) {
-        particleBuffer.buffer[i] = {
-            particles[i].pos,
-            particles[i].vel
-        };
-    }
-    particleBuffer.velScalar = deltaTime * timeMultiplier;
-
     // loading particle data into shader buffer
-    rlUpdateShaderBuffer(ssboUpdate, &particleBuffer, sizeof(bufferUpdate), 0);
+    rlUpdateShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
+    rlUpdateShaderBuffer(textureSSBO, textureBuffer.begin(), textureBuffer.getCount() * sizeof(Vector4), 0);
 
     // processing particle data using compute shader
-    rlEnableShader(particleUpdateProgram);
-    rlBindShaderBuffer(ssboUpdate, 1);
+    rlEnableShader(updateParticleProgram);
+    rlBindShaderBuffer(particleSSBO, 1);
+    rlBindShaderBuffer(simDataSSBO, 2);
+    rlBindShaderBuffer(textureSSBO, 3);
     rlComputeShaderDispatch(BUFFER_SIZE/WORKGROUP_SIZE, 1, 1);
     rlDisableShader();
 
-    rlReadShaderBuffer(ssboUpdate, &particleBuffer, sizeof(bufferUpdate), 0);
-
-    for (int i = 0; i < particles.getCount(); i++) {
-        particles[i].pos = particleBuffer.buffer[i].pos;
-    }
+    //rlReadShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
 }
 
 void Simulation::draw() {
+    rlBindShaderBuffer(textureSSBO, 1);
+    SetShaderValue(renderSimShader, resUniformLoc, &resolution, SHADER_UNIFORM_VEC2);
+
+    BeginShaderMode(renderSimShader);
+    DrawTexture(texture, bounds.x, bounds.y, WHITE);
+    EndShaderMode();
+
     Vector2 mousePos = GetMousePosition();
 
     if (showSmoothingRadius) {
@@ -410,25 +411,25 @@ void Simulation::draw() {
         }
     }
 
-    for (int i = 0; i < particles.getCount(); i++) {
-        Vector2 screenPos = convertToScreenPos(particles[i].pos);
-        float densityError = std::clamp((densities[i] / targetDensity) / 2.5f, 0.f, 1.f);
-        
-        float r = (1 - abs(densityError - 1)) * 255;
-        float g = (1 - abs(densityError - 0.5) * 2) * 255;
-        float b = (1 - abs(densityError - 0)) * 255;
+    //for (int i = 0; i < particles.getCount(); i++) {
+    //    Vector2 screenPos = convertToScreenPos(particles[i].pos);
+    //    float densityError = std::clamp((densities[i] / targetDensity) / 2.5f, 0.f, 1.f);
+    //    
+    //    float r = (1 - abs(densityError - 1)) * 255;
+    //    float g = (1 - abs(densityError - 0.5) * 2) * 255;
+    //    float b = (1 - abs(densityError - 0)) * 255;
 
-        //float densityError = std::max((densities[i] - targetDensity), 0.f) * 255 * 2;
+    //    //float densityError = std::max((densities[i] - targetDensity), 0.f) * 255 * 2;
 
-        //float r = std::max(0.f, std::min(255.f, densityError));
-        //float g = std::max(0.f, std::min(255.f, densityError - 255));
-        //float b = std::max(0.f, std::min(255.f, densityError - 511));
+    //    //float r = std::max(0.f, std::min(255.f, densityError));
+    //    //float g = std::max(0.f, std::min(255.f, densityError - 255));
+    //    //float b = std::max(0.f, std::min(255.f, densityError - 511));
 
-        Color densityColor = { r, g, b, 255};
-        
-        //DrawCircle(screenPos.x, screenPos.y, particles[i].radius * scale, densityColor);
-        DrawRectangle(screenPos.x - (particles[i].radius * scale), screenPos.y - (particles[i].radius * scale), 2 * particles[i].radius * scale, 2 * particles[i].radius * scale, densityColor);
-    }
+    //    Color densityColor = { r, g, b, 255};
+    //    
+    //    //DrawCircle(screenPos.x, screenPos.y, particles[i].radius * scale, densityColor);
+    //    DrawRectangle(screenPos.x - (particles[i].radius * scale), screenPos.y - (particles[i].radius * scale), 2 * particles[i].radius * scale, 2 * particles[i].radius * scale, densityColor);
+    //}
 
     // spatial hash testing
     //spatialHash.draw({ bounds.x, bounds.y }, scale, convertToSimPos(mousePos));

@@ -1,8 +1,7 @@
 #pragma once
 #include "raymath.h"
 
-class Particle {
-public:
+struct Particle {
     float mass;
     float radius;
     Vector2 pos;

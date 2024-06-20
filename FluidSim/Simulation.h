@@ -8,6 +8,8 @@ class Simulation {
 private:
     Vector4 bounds;
     float scale;
+    Vector2 resolution;
+    Texture texture;
 
     Vector2 gravity;
     float collisionDampening;
@@ -16,7 +18,7 @@ private:
     float smoothingRadius;
     float targetDensity;
     float pressureMultiplier;
-    float timeMultiplier;
+    float timeDilation;
     float mouseInteractRadius;
     float mouseInteractForce;
 
@@ -29,10 +31,16 @@ private:
 
     SpatialHashGrid spatialHash;
 
-    unsigned int particleUpdateProgram;
-    unsigned int gravityProjectProgram;
-    unsigned int ssboUpdate;
-    unsigned int ssboGravityProject;
+    unsigned int updateParticleProgram;
+    unsigned int gravProjectionProgram;
+    Shader renderSimShader;
+    int resUniformLoc;
+
+    unsigned int projectedPositionSSBO;    
+    unsigned int particleSSBO;
+    unsigned int simDataSSBO;
+    Array<Vector4> textureBuffer;
+    unsigned int textureSSBO;
 
 public:
     Simulation(Vector4 _bounds);

@@ -52,7 +52,13 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="particleUpdate.glsl">
+    <None Include="updateParticle.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="gravProjection.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="renderSim.glsl">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

@@ -10,6 +10,14 @@ SpatialHashGrid::SpatialHashGrid(Vector2 _size, int _gridWidth, int _gridHeight)
     cellHeight = (float)(size.y / _gridHeight);
     cellCount = _gridWidth * _gridHeight;
 
+    // hash offset values for 3x3 grid
+    hashOffsets = Array<int>(9);
+    for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < 3; y++) {
+            hashOffsets[x + y * 3] = (x - 1) + (y - 1) * gridWidth;
+        }
+    }
+
     hashList = Array<int2>(0);
     indexLookup = Array<int2>(cellCount);
 }
@@ -21,6 +29,14 @@ SpatialHashGrid::SpatialHashGrid(Vector2 _size, float _cellWidth, float _cellHei
     cellWidth = _cellWidth;
     cellHeight = _cellHeight;
     cellCount = gridWidth * gridHeight;
+
+    // hash offset values for 3x3 grid
+    hashOffsets = Array<int>(9);
+    for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < 3; y++) {
+            hashOffsets[x + y * 3] = (x - 1) + (y - 1) * gridWidth;
+        }
+    }
 
     hashList = Array<int2>(0);
     indexLookup = Array<int2>(cellCount);

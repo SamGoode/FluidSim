@@ -11,6 +11,9 @@ private:
     float cellWidth;
     float cellHeight;
     int cellCount;
+
+    Array<int> hashOffsets;
+
     // (particle ID, cell ID/hash)
     Array<int2> hashList;
     // (start Index, end Index)
@@ -20,6 +23,8 @@ public:
     SpatialHashGrid() {}
     SpatialHashGrid(Vector2 _size, int _gridWidth, int _gridHeight);
     SpatialHashGrid(Vector2 _size, float _cellWidth, float _cellHeight);
+
+    const Array<int>& getHashOffsets() { return hashOffsets; }
 
     const Array<int2>& getHashList() { return hashList; }
     const Array<int2>& getIndexLookup() { return indexLookup; }

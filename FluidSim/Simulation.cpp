@@ -28,13 +28,13 @@ Simulation::Simulation(Vector4 _bounds) {
     collisionDampening = 0.1;
 
     showSmoothingRadius = false;
-    smoothingRadius = 1.4f;
+    smoothingRadius = 1.3f;
     sqrRadius = smoothingRadius * smoothingRadius;
     targetDensity = smoothing(smoothingRadius, 0);
-    pressureMultiplier = 400;
-    timeDilation = 3;
+    pressureMultiplier = 200;
+    timeDilation = 2;
     mouseInteractRadius = 10;
-    mouseInteractForce = 20;
+    mouseInteractForce = 30;
 
     defaultMass = 1;
     defaultRadius = 0.5;
@@ -58,7 +58,7 @@ Simulation::Simulation(Vector4 _bounds) {
     particles = Array<Particle>(16384);
     // initiate particles in a square formation
     for (int i = 0; i < particles.getCount(); i++) {
-        particles[i] = { defaultMass, defaultRadius, {10 + (float)(i % 128) * defaultRadius * 2, 10 + (float)(i / 128) * defaultRadius * 2}, {0, 0} };
+        particles[i] = { defaultMass, defaultRadius, {40 + (float)(i % 128) * defaultRadius * 2, 10 + (float)(i / 128) * defaultRadius * 2}, {0, 0} };
     }
 
     fixedTimeStep = 0.01f;
@@ -186,12 +186,15 @@ float Simulation::calculateSharedPressure(float densityA, float densityB) {
 // calculates gradient vector within the density field at a particle's position
 // then scales it based on mass, density and pressure to get the pressure vector acting upon a particle
 Vector2 Simulation::calculateGradientVec(int particleID) {
+    //const Array<int>& hashOffsets = spatialHash.getHashOffsets();
+
     const Array<int2>& hashList = spatialHash.getHashList();
     const Array<int2>& indexLookup = spatialHash.getIndexLookup();
 
     float density = densities[particleID];
     Vector2 pos = projectedPositions[particleID];
     int2 cellPos = spatialHash.getCellPos(pos);
+    //int cellHash = spatialHash.getCellHash(cellPos);
 
     Vector2 gradientVec = { 0, 0 };
     for (int i = 0; i < 9; i++) {
@@ -201,14 +204,18 @@ Vector2 Simulation::calculateGradientVec(int particleID) {
             continue;
         }
 
-        int cellHash = spatialHash.getCellHash(offsetCellPos);
+        int offsetCellHash = spatialHash.getCellHash(offsetCellPos);
+        //int offsetCellHash = cellHash + hashOffsets[i];
+        //if (!spatialHash.isValidCellHash(offsetCellHash)) {
+        //    continue;
+        //}
 
-        int startIndex = indexLookup[cellHash].x;
+        int startIndex = indexLookup[offsetCellHash].x;
         if (startIndex < 0) {
             continue;
         }
 
-        int endIndex = indexLookup[cellHash].y;
+        int endIndex = indexLookup[offsetCellHash].y;
 
         for (int n = startIndex; n < endIndex + 1; n++) {
             int otherParticleID = hashList[n].x;
@@ -347,7 +354,7 @@ void Simulation::update(float deltaTime) {
 
         // boundary collision check
         for (int i = 0; i < particles.getCount(); i++) {
-            float edgeOffset = particles[i].radius * 1.2f;
+            float edgeOffset = particles[i].radius * 1.f;
 
             if (particles[i].pos.y + particles[i].radius >= getScaledHeight()) {
                 Vector2 vel = particles[i].vel;

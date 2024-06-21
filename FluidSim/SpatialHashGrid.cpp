@@ -10,14 +10,8 @@ SpatialHashGrid::SpatialHashGrid(Vector2 _size, int _gridWidth, int _gridHeight)
     cellHeight = (float)(size.y / _gridHeight);
     cellCount = _gridWidth * _gridHeight;
 
-    for (int i = 0; i < 9; i++) {
-        posOffsets[i] = { (i % 3) - 1, (i / 3) - 1 };
-        hashOffsets[i] = { ((i % 3) - 1) + ((i / 3) - 1) * _gridWidth };
-    }
-
     hashList = Array<int2>(0);
     indexLookup = Array<int2>(cellCount);
-    tempIDs = Array<int>(0);
 }
 
 SpatialHashGrid::SpatialHashGrid(Vector2 _size, float _cellWidth, float _cellHeight) {
@@ -28,14 +22,8 @@ SpatialHashGrid::SpatialHashGrid(Vector2 _size, float _cellWidth, float _cellHei
     cellHeight = _cellHeight;
     cellCount = gridWidth * gridHeight;
 
-    for (int i = 0; i < 9; i++) {
-        posOffsets[i] = { (i % 3) - 1, (i / 3) - 1 };
-        hashOffsets[i] = { ((i % 3) - 1) + ((i / 3) - 1) * gridWidth };
-    }
-
     hashList = Array<int2>(0);
     indexLookup = Array<int2>(cellCount);
-    tempIDs = Array<int>(0);
 }
 
 int2 SpatialHashGrid::getCellPos(Vector2 pos) {
@@ -63,8 +51,6 @@ void SpatialHashGrid::generateHashList(Array<Vector2> positions) {
     for (int i = 0; i < hashList.getCount(); i++) {
         hashList[i] = { i, getCellHash(getCellPos(positions[i]))};
     }
-
-    tempIDs = Array<int>(0, hashList.getCapacity());
 }
 
 void SpatialHashGrid::sortByCellHash() {
@@ -107,79 +93,8 @@ void SpatialHashGrid::generateLookup() {
     indexLookup[hashList[hashList.getCount() - 1].y].y = hashList.getCount() - 1;
 }
 
-const Array<int>& SpatialHashGrid::findWithin(int cellHash) {
-    tempIDs.resetCount();
-    int startIndex = indexLookup[cellHash].x;
-    int endIndex = indexLookup[cellHash].y;
-
-    if (startIndex < 0) {
-        return tempIDs;
-    }
-
-    for (int i = startIndex; i < endIndex + 1; i++) {
-        tempIDs.append(hashList[i].x);
-    }
-
-    return tempIDs;
-}
-
-const Array<int>& SpatialHashGrid::findNearby(int centreCellHash) {
-    tempIDs.resetCount();
-    int2 centreCellPos = getCellPos(centreCellHash);
-
-    for (int i = 0; i < 9; i++) {
-        if (!isValidCellPos(centreCellPos + posOffsets[i])) {
-            continue;
-        }
-
-        int cellHash = centreCellHash + hashOffsets[i];
-
-        int startIndex = indexLookup[cellHash].x;
-        int endIndex = indexLookup[cellHash].y;
-
-        if (startIndex < 0) {
-            continue;
-        }
-
-        for (int n = startIndex; n < endIndex + 1; n++) {
-            tempIDs.append(hashList[n].x);
-        }
-    }
-
-    return tempIDs;
-}
-
-Array<int> SpatialHashGrid::findNearby(int2 cellPos) {
-    tempIDs.resetCount();
-    int centreCellHash = getCellHash(cellPos);
-
-    for (int i = 0; i < 9; i++) {
-        if (!isValidCellPos(cellPos + posOffsets[i])) {
-            continue;
-        }
-
-        int cellHash = centreCellHash + hashOffsets[i];
-
-        int startIndex = indexLookup[cellHash].x;
-        int endIndex = indexLookup[cellHash].y;
-        if (startIndex < 0) {
-            continue;
-        }
-
-        for (int n = startIndex; n < endIndex + 1; n++) {
-            tempIDs.append(hashList[n].x);
-        }
-    }
-
-    return tempIDs;
-}
-
 void SpatialHashGrid::draw(Vector2 pos, float scale, Vector2 testPos) {
-    //Vector2 testPos = GetMousePosition();
-
     int2 cellPos = getCellPos(testPos);
-    Array<int> withinIDs = findWithin(getCellHash(cellPos));
-    Array<int> IDs = findNearby(cellPos);
 
     int x = cellPos.x;
     int y = cellPos.y;
@@ -194,26 +109,6 @@ void SpatialHashGrid::draw(Vector2 pos, float scale, Vector2 testPos) {
     }
 
     DrawRectangleLines(pos.x, pos.y, size.x * scale, size.y * scale, BLACK);
-
-    //for (int i = 0; i < hashList.getCount(); i++) {
-    //    bool isNearby = false;
-    //    for (int n = 0; n < IDs.getCount(); n++) {
-    //        if (hashList[i].x == IDs[n]) {
-    //            isNearby = true;
-    //        }
-    //    }
-
-    //    Vector2 c_pos = critters[hashList[i].x].GetPosition();
-
-    //    if (isNearby) {
-    //        DrawCircle(c_pos.x, c_pos.y, 15, RED);
-    //    }
-    //    else {
-    //        DrawCircle(c_pos.x, c_pos.y, 15, GREEN);
-    //    }
-    //}
-
-    //DrawCircle(pos.x, pos.y, 15, BLUE);
 
     //std::string cellID = "Cell ID: " + std::to_string(getCellHash(cellPos));
     //DrawText(cellID.c_str(), 10, 100, 20, PURPLE);

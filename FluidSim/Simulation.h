@@ -16,6 +16,7 @@ private:
 
     bool showSmoothingRadius;
     float smoothingRadius;
+    float sqrRadius;
     float targetDensity;
     float pressureMultiplier;
     float timeDilation;
@@ -25,11 +26,14 @@ private:
     float defaultMass;
     float defaultRadius;
     Array<Particle> particles;
-    float projectedTime;
+    float fixedTimeStep;
+    float timePassed;
+
     Array<Vector2> projectedPositions;
     Array<float> densities;
 
     SpatialHashGrid spatialHash;
+    int2 cellOffsets[9];
 
     unsigned int updateParticleProgram;
     unsigned int gravProjectionProgram;

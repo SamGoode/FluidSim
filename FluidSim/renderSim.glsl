@@ -22,8 +22,8 @@ uniform vec2 resolution;
 void main() {
     ivec2 coords = ivec2(fragTexCoord * resolution);
     
-    //finalColor = vec4(1, 1, 1, 1);
-    //finalColor = vec4(0, coords.x/resolution.x, coords.y/resolution.y, 1);
+    //finalColor = vec4(1, 1, 0, 1);
+    //finalColor = vec4(coords.x/resolution.x, 0, coords.y/resolution.y, 1);
     //vec4 test = textureBuffer.pixels[coords.x + coords.y * uvec2(resolution).x];
     finalColor = textureBuffer.pixels[coords.x + coords.y * uvec2(resolution).x];
 }

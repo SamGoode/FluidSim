@@ -9,13 +9,14 @@ int main() {
 
     InitWindow(screenWidth, screenHeight, "Smooth Particle Hydrodynamics Sim");
 
-    //SetTargetFPS(120);
+    SetTargetFPS(240);
 
     int seed = 844134593;
     srand(seed);
 
     Simulation sim({ 400, 100, (float)screenWidth - 400, (float)screenHeight - 100 });
-    sim.update(0.000001);
+    // update once to initialise all values
+    sim.update(0.01f);
 
     bool paused = true;
 

@@ -23,3 +23,11 @@ static Vector2 operator/(Vector2 a, float scalar) {
 static void operator+=(Vector2& a, Vector2 b) {
     a = a + b;
 }
+
+static void operator-=(Vector2& a, Vector2 b) {
+    a = a - b;
+}
+
+static bool operator==(Vector2 a, Vector2 b) {
+    return (a.x == b.x && a.y == b.y);
+}

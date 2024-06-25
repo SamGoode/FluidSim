@@ -4,6 +4,25 @@
 #include "Array.h"
 #include "SpatialHashGrid.h"
 
+struct SimData {
+    Vector2 gravity;
+    float targetDensity;
+    float fixedTimeStep;
+    float timeDilation;
+};
+
+struct AirflowSpace {
+    Vector2 pos;
+    float width;
+    float height;
+    Vector2 force;
+};
+
+struct Ball {
+    Vector2 pos;
+    float radius;
+};
+
 class Simulation {
 private:
     Vector4 bounds;
@@ -20,8 +39,12 @@ private:
     float targetDensity;
     float pressureMultiplier;
     float timeDilation;
+
     float mouseInteractRadius;
     float mouseInteractForce;
+
+    Array<AirflowSpace> airflows;
+    Ball ball;
 
     float defaultMass;
     float defaultRadius;
@@ -31,19 +54,23 @@ private:
 
     Array<Vector2> projectedPositions;
     Array<float> densities;
+    Array<Vector2> previousPositions;
 
     SpatialHashGrid spatialHash;
     int2 cellOffsets[9];
 
     unsigned int updateParticleProgram;
     unsigned int gravProjectionProgram;
+    unsigned int clearTextureBufferProgram;
+    unsigned int updateTextureBufferProgram;
     Shader renderSimShader;
     int resUniformLoc;
 
-    unsigned int projectedPositionSSBO;    
-    unsigned int particleSSBO;
+    SimData simData;
     unsigned int simDataSSBO;
-    Array<Vector4> textureBuffer;
+    unsigned int particleSSBO;
+    unsigned int projectedPositionSSBO;
+    unsigned int densitySSBO;
     unsigned int textureSSBO;
 
 public:

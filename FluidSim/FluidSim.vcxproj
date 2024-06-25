@@ -153,9 +153,11 @@
     <ClInclude Include="SpatialHashGrid.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="clearTextureBuffer.glsl" />
     <None Include="gravProjection.glsl" />
     <None Include="renderSim.glsl" />
     <None Include="updateParticle.glsl" />
+    <None Include="updateTextureBuffer.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

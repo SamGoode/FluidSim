@@ -61,5 +61,11 @@
     <None Include="renderSim.glsl">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="clearTextureBuffer.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="updateTextureBuffer.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

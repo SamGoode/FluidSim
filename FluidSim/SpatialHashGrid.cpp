@@ -61,11 +61,12 @@ int2 SpatialHashGrid::getCellPos(Vector2 pos) {
     return cellPos;
 }
 
-void SpatialHashGrid::generateHashList(const Array<Particle>& particles) {
-    hashList = Array<int2>(particles.getCount());
+void SpatialHashGrid::generateHashList(const Array<Particle>& particles, const Array<int>& objectPool, int activeCount) {
+    hashList = Array<int2>(activeCount);
     
-    for (int i = 0; i < hashList.getCount(); i++) {
-        hashList[i] = { i, getCellHash(getCellPos(particles[i].pos)) };
+    for (int i = 0; i < activeCount; i++) {
+        int particleID = objectPool[i];
+        hashList[i] = { particleID, getCellHash(getCellPos(particles[particleID].pos)) };
     }
 }
 

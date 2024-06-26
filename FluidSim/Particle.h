@@ -2,8 +2,8 @@
 #include "raymath.h"
 
 struct Particle {
+    int isActive;
     float mass;
-    float radius;
     Vector2 pos;
     Vector2 vel;
 };

@@ -8,7 +8,6 @@ struct SimData {
     Vector2 gravity;
     float targetDensity;
     float fixedTimeStep;
-    float timeDilation;
 };
 
 struct AirflowSpace {
@@ -36,6 +35,7 @@ private:
     bool showSmoothingRadius;
     float smoothingRadius;
     float sqrRadius;
+    float particleRadius;
     float targetDensity;
     float pressureMultiplier;
     float timeDilation;
@@ -47,12 +47,13 @@ private:
     Ball ball;
 
     float defaultMass;
-    float defaultRadius;
     Array<Particle> particles;
+    Array<int> objectPool;
+    int activeCount;
+
     float fixedTimeStep;
     float timePassed;
 
-    Array<Vector2> projectedPositions;
     Array<float> densities;
     Array<Vector2> previousPositions;
 
@@ -92,6 +93,9 @@ public:
     float convertDensityToPressure(float density);
     float calculateSharedPressure(float densityA, float densityB);
     Vector2 calculateGradientVec(int particleID);
+
+    void spawnParticle(float mass, Vector2 pos, Vector2 vel);
+    void despawnParticle(int particleID);
 
     void update(float deltaTime);
     void draw();

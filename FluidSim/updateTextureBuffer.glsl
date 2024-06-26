@@ -2,7 +2,7 @@
 
 // updating texture buffer
 
-#define MAX_PARTICLE_COUNT 16384
+#define MAX_PARTICLE_COUNT 8192
 // process 512 particles at a time
 #define WORKGROUP_SIZE 512
 

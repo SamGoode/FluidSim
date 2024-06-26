@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "Array.h"
 #include "int2.h"
+#include "Particle.h"
 
 class SpatialHashGrid {
 private:
@@ -35,7 +36,7 @@ public:
     bool isValidCellHash(int cellHash) { return { cellHash >= 0 && cellHash < cellCount }; }
     int getCellHash(int2 cellPos) { return (cellPos.x + cellPos.y * gridWidth); }
 
-    void generateHashList(const Array<Vector2> positions);
+    void generateHashList(const Array<Particle>& particles);
     void sortByCellHash();
     void generateLookup();
 

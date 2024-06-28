@@ -10,6 +10,47 @@ struct SimData {
     float fixedTimeStep;
 };
 
+struct SpawnArea {
+    Vector4 bounds;
+    Vector2 initVel;
+
+    Vector2 getStartPos() {
+        return { bounds.x, bounds.y };
+    }
+
+    Vector2 getEndPos() {
+        return { bounds.z, bounds.w };
+    }
+
+    float getWidth() {
+        return bounds.z - bounds.x;
+    }
+
+    float getHeight() {
+        return bounds.w - bounds.y;
+    }
+};
+
+struct DespawnArea {
+    Vector4 bounds;
+
+    Vector2 getStartPos() {
+        return { bounds.x, bounds.y };
+    }
+
+    Vector2 getEndPos() {
+        return { bounds.z, bounds.w };
+    }
+
+    float getWidth() {
+        return bounds.z - bounds.x;
+    }
+
+    float getHeight() {
+        return bounds.w - bounds.y;
+    }
+};
+
 struct AirflowSpace {
     Vector2 pos;
     float width;
@@ -43,8 +84,11 @@ private:
     float mouseInteractRadius;
     float mouseInteractForce;
 
+    int spawnAmount;
+    SpawnArea spawnArea;
+    DespawnArea despawnArea;
     Array<AirflowSpace> airflows;
-    Ball ball;
+    Array<Ball> balls;
 
     float defaultMass;
     Array<Particle> particles;

@@ -5,7 +5,7 @@
 #include <algorithm>
 
 // must be larger than particle count
-#define MAX_PARTICLE_COUNT 8192
+#define MAX_PARTICLE_COUNT 16384
 #define WORKGROUP_SIZE 512
 
 Simulation::Simulation(Vector4 _bounds) {
@@ -17,7 +17,7 @@ Simulation::Simulation(Vector4 _bounds) {
     texture = LoadTextureFromImage(whiteImage);
     UnloadImage(whiteImage);
 
-    gravity = { 0, 2 };
+    gravity = { 0, 0 };
     collisionDampening = 0.1;
 
     showSmoothingRadius = false;
@@ -30,6 +30,16 @@ Simulation::Simulation(Vector4 _bounds) {
 
     mouseInteractRadius = 8;
     mouseInteractForce = 50;
+
+    spawnAmount = 20;
+    spawnArea = {
+        {0, 0, 2, 100},
+        {4, 0}
+    };
+
+    despawnArea = {
+        {131.33f, 0, 133.33f, 100}
+    };
 
     airflows = Array<AirflowSpace>(0);
     //airflows[0] = {
@@ -75,11 +85,27 @@ Simulation::Simulation(Vector4 _bounds) {
     //    {0, -4}
     //};
 
-    ball = {
-        {80, 50},
-        5
+    balls = Array<Ball>(5);
+    balls[0] = {
+        {74, 52},
+        8
     };
-
+    balls[1] = {
+        {77, 51},
+        9
+    };
+    balls[2] = {
+        {80, 50},
+        10
+    };
+    balls[3] = {
+        {87, 50},
+        10
+    };
+    balls[4] = {
+        {89, 51},
+        9
+    };
 
     defaultMass = 1;
     particles = Array<Particle>(MAX_PARTICLE_COUNT);
@@ -87,7 +113,7 @@ Simulation::Simulation(Vector4 _bounds) {
     for (int i = 0; i < MAX_PARTICLE_COUNT; i++) {
         objectPool[i] = i;
     }
-    activeCount = 8192;
+    activeCount = 0;
     
     // initiate particles at random positions and with random velocities
     for (int i = 0; i < activeCount; i++) {
@@ -411,6 +437,25 @@ void Simulation::update(float deltaTime) {
             particles[particleID].pos += pressureForce * ((fixedTimeStep * fixedTimeStep) / mass);
         }
 
+        // particle spawning
+        for (int i = 0; i < spawnAmount; i++) {
+            Vector2 spawnPos = { spawnArea.bounds.x + ((rand() * spawnArea.getWidth()) / RAND_MAX), spawnArea.bounds.y + ((rand() * spawnArea.getHeight()) / RAND_MAX) };
+
+            spawnParticle(defaultMass, spawnPos, spawnArea.initVel);
+        }
+
+        // particle despawning
+        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+            int particleID = objectPool[poolIndex];
+            Vector2 particlePos = particles[particleID].pos;
+
+            if (particlePos.x < despawnArea.bounds.x || particlePos.x > despawnArea.bounds.z || particlePos.y < despawnArea.bounds.y || particlePos.y > despawnArea.bounds.w) {
+                continue;
+            }
+
+            despawnParticle(poolIndex);
+        }
+
         // airflow spaces
         for (int i = 0; i < airflows.getCount(); i++) {
             for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
@@ -428,36 +473,38 @@ void Simulation::update(float deltaTime) {
         }
 
         // ball collisions
-        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
-            int particleID = objectPool[poolIndex];
-            
-            Vector2 BtoP = particles[particleID].pos - ball.pos;
-            float sqrDist = Vector2LengthSqr(BtoP);
-            if (sqrDist >= ball.radius * ball.radius) {
-                continue;
+        for (int i = 0; i < balls.getCount(); i++) {
+            for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+                int particleID = objectPool[poolIndex];
+
+                Vector2 BtoP = particles[particleID].pos - balls[i].pos;
+                float sqrDist = Vector2LengthSqr(BtoP);
+                if (sqrDist >= balls[i].radius * balls[i].radius) {
+                    continue;
+                }
+
+                float dist = sqrt(sqrDist);
+                Vector2 unitNormal = BtoP / dist;
+
+                Vector2 velocity = (particles[particleID].pos - previousPositions[particleID]) / fixedTimeStep;
+                float velNormalMag = Vector2DotProduct(velocity, unitNormal);
+                Vector2 velNormal = unitNormal * velNormalMag;
+                Vector2 velTangent = velocity - velNormal;
+
+                float frictionCoefficient = 0.99f;
+                Vector2 impulse = (velNormal - (velTangent * (1 - frictionCoefficient))) * -1;
+                particles[particleID].pos += impulse * fixedTimeStep * fixedTimeStep;
+
+                BtoP = particles[particleID].pos - balls[i].pos;
+                sqrDist = Vector2LengthSqr(BtoP);
+                if (sqrDist >= balls[i].radius * balls[i].radius) {
+                    continue;
+                }
+
+                dist = sqrt(sqrDist);
+                unitNormal = BtoP / dist;
+                particles[particleID].pos += unitNormal * (balls[i].radius - dist);
             }
-
-            float dist = sqrt(sqrDist);
-            Vector2 unitNormal = BtoP / dist;
-
-            Vector2 velocity = (particles[particleID].pos - previousPositions[particleID]) / fixedTimeStep;
-            float velNormalMag = Vector2DotProduct(velocity, unitNormal);
-            Vector2 velNormal = unitNormal * velNormalMag;
-            Vector2 velTangent = velocity - velNormal;
-
-            float frictionCoefficient = 0.8f;
-            Vector2 impulse = (velNormal - (velTangent * (1 - frictionCoefficient))) * -1;
-            particles[particleID].pos += impulse * fixedTimeStep * fixedTimeStep;
-
-            BtoP = particles[particleID].pos - ball.pos;
-            sqrDist = Vector2LengthSqr(BtoP);
-            if (sqrDist >= ball.radius * ball.radius) {
-                continue;
-            }
-
-            dist = sqrt(sqrDist);
-            unitNormal = BtoP / dist;
-            particles[particleID].pos += unitNormal * (ball.radius - dist);
         }
 
         // mouse interaction
@@ -483,6 +530,7 @@ void Simulation::update(float deltaTime) {
             }
         }
 
+        // mouse spawning and despawning
         if (IsKeyDown(KEY_ONE)) {
             Vector2 mousePos = convertToSimPos(GetMousePosition());
 
@@ -505,7 +553,6 @@ void Simulation::update(float deltaTime) {
                 }
             }
         }
-        
 
         // boundary collision check
         for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
@@ -618,13 +665,21 @@ void Simulation::draw() {
     //    DrawCircle(screenPos.x, screenPos.y, defaultRadius * scale * 2, WHITE);
     //}
 
+    Vector2 spawnScreenPos = convertToScreenPos(spawnArea.getStartPos());
+    DrawRectangleLines(spawnScreenPos.x, spawnScreenPos.y, spawnArea.getWidth() * scale, spawnArea.getHeight() * scale, BLACK);
+
+    Vector2 despawnScreenPos = convertToScreenPos(despawnArea.getStartPos());
+    DrawRectangleLines(despawnScreenPos.x, despawnScreenPos.y, despawnArea.getWidth() * scale, despawnArea.getHeight() * scale, BLACK);
+
     for (int i = 0; i < airflows.getCount(); i++) {
         Vector2 airflowScreenPos = convertToScreenPos(airflows[i].pos);
         DrawRectangleLines(airflowScreenPos.x, airflowScreenPos.y, airflows[i].width * scale, airflows[i].height * scale, BLACK);
     }
 
-    Vector2 ballScreenPos = convertToScreenPos(ball.pos);
-    DrawCircleLines(ballScreenPos.x, ballScreenPos.y, ball.radius * scale, BLACK);
+    for (int i = 0; i < balls.getCount(); i++) {
+        Vector2 ballScreenPos = convertToScreenPos(balls[i].pos);
+        DrawCircleLines(ballScreenPos.x, ballScreenPos.y, balls[i].radius * scale, BLACK);
+    }
 
     DrawCircleLines(mousePos.x, mousePos.y, mouseInteractRadius * scale, BLACK);
 

@@ -17,24 +17,29 @@ Simulation::Simulation(Vector4 _bounds) {
     texture = LoadTextureFromImage(whiteImage);
     UnloadImage(whiteImage);
 
-    gravity = { 0, 0 };
+    gravity = { 0, 1 };
     collisionDampening = 0.1;
+    frictionCoefficient = 0.8f;
+    stickyDist = 0.7f;
+
+    //springs = Array<Spring>(0);
+    springs = SpringBuffer(MAX_PARTICLE_COUNT);
 
     showSmoothingRadius = false;
     smoothingRadius = 1.3f;
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5;
-    targetDensity = smoothing(smoothingRadius, 0);
-    pressureMultiplier = 400;
+    targetDensity = 1.1f;//smoothing(smoothingRadius, 0);
+    pressureMultiplier = 4;
     timeDilation = 2;
 
     mouseInteractRadius = 8;
-    mouseInteractForce = 50;
+    mouseInteractForce = 15;
 
-    spawnAmount = 20;
+    spawnAmount = 10;
     spawnArea = {
         {0, 0, 2, 100},
-        {4, 0}
+        {10, 0}
     };
 
     despawnArea = {
@@ -85,26 +90,50 @@ Simulation::Simulation(Vector4 _bounds) {
     //    {0, -4}
     //};
 
-    balls = Array<Ball>(5);
+    balls = Array<Ball>(11);
     balls[0] = {
-        {74, 52},
-        8
+        {67, 51},
+        6
     };
     balls[1] = {
-        {77, 51},
-        9
+        {69, 51},
+        7
     };
     balls[2] = {
+        {72, 50.5},
+        8
+    };
+    balls[3] = {
+        {76, 50},
+        9.5
+    };
+    balls[4] = {
         {80, 50},
         10
     };
-    balls[3] = {
-        {87, 50},
+    balls[5] = {
+        {85, 50},
         10
     };
-    balls[4] = {
+    balls[6] = {
         {89, 51},
         9
+    };
+    balls[7] = {
+        {92, 52},
+        8
+    };
+    balls[8] = {
+        {95, 53},
+        7
+    };
+    balls[9] = {
+        {98, 54},
+        6
+    };
+    balls[10] = {
+        {100, 55},
+        5
     };
 
     defaultMass = 1;
@@ -113,7 +142,7 @@ Simulation::Simulation(Vector4 _bounds) {
     for (int i = 0; i < MAX_PARTICLE_COUNT; i++) {
         objectPool[i] = i;
     }
-    activeCount = 0;
+    activeCount = 4096;
     
     // initiate particles at random positions and with random velocities
     for (int i = 0; i < activeCount; i++) {
@@ -208,10 +237,10 @@ Simulation::~Simulation() {
 // smoothing function
 // dist should never exceed radius
 float Simulation::smoothing(float radius, float dist) {
-    //float volume = pow(radius, 5) * PI * 0.1;
-    float difference = radius - dist;//std::max(0.f, radius - dist);
-    float value = (difference * difference) / (radius * radius);
-    return value;
+    //float difference = radius - dist;
+    //float value = (difference * difference) / (radius * radius);
+    float value = 1 - (dist / radius);
+    return value * value;
 }
 
 // derivative of smoothing function
@@ -226,7 +255,6 @@ float Simulation::calculateDensity(int particleID) {
     const Array<int2>& hashList = spatialHash.getHashList();
     const Array<int2>& indexLookup = spatialHash.getIndexLookup();
 
-    //Vector2 pos = projectedPositions[particleID];
     Vector2 pos = particles[particleID].pos;
     int2 cellPos = spatialHash.getCellPos(pos);
 
@@ -249,7 +277,6 @@ float Simulation::calculateDensity(int particleID) {
 
         for (int n = startIndex; n < endIndex + 1; n++) {
             int otherParticleID = hashList[n].x;
-            //Vector2 otherPos = projectedPositions[otherParticleID];
             Vector2 otherPos = particles[otherParticleID].pos;
 
             float sqrDist = Vector2DistanceSqr(pos, otherPos);
@@ -267,7 +294,7 @@ float Simulation::calculateDensity(int particleID) {
 }
 
 float Simulation::convertDensityToPressure(float density) {
-    float densityError = std::max(0.f, density - targetDensity);
+    float densityError = density - targetDensity;//std::max(0.f, density - targetDensity);
     float pressure = densityError * pressureMultiplier;
     return pressure;
 }
@@ -390,10 +417,76 @@ void Simulation::update(float deltaTime) {
     }
 
     for (int step = 0; step < numberSteps; step++) {
-        // gravity application
+        // apply gravity
         for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
             int particleID = objectPool[poolIndex];
             particles[particleID].vel += gravity * fixedTimeStep;
+        }
+
+        // spatial hash current positions
+        spatialHash.generateHashList(particles, objectPool, activeCount);
+        spatialHash.sortByCellHash();
+        spatialHash.generateLookup();
+
+        // apply viscosity
+        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+            const Array<int2>& hashList = spatialHash.getHashList();
+            const Array<int2>& indexLookup = spatialHash.getIndexLookup();
+
+            int particleID = objectPool[poolIndex];
+
+            Vector2 pos = particles[particleID].pos;
+            int2 cellPos = spatialHash.getCellPos(pos);
+
+            for (int i = 0; i < 9; i++) {
+                int2 offsetCellPos = cellPos + cellOffsets[i];
+
+                if (!spatialHash.isValidCellPos(offsetCellPos)) {
+                    continue;
+                }
+
+                int cellHash = spatialHash.getCellHash(offsetCellPos);
+
+                int startIndex = indexLookup[cellHash].x;
+                if (startIndex < 0) {
+                    continue;
+                }
+
+                int endIndex = indexLookup[cellHash].y;
+
+                for (int n = startIndex; n < endIndex + 1; n++) {
+                    int otherParticleID = hashList[n].x;
+                    if (particleID >= otherParticleID) {
+                        continue;
+                    }
+
+                    Vector2 otherPos = particles[otherParticleID].pos;
+
+                    Vector2 toOther = otherPos - pos;
+                    float sqrDist = Vector2LengthSqr(toOther);
+
+                    if (sqrDist == 0 || sqrDist > sqrRadius) {
+                        continue;
+                    }
+
+                    float dist = sqrt(sqrDist);
+                    Vector2 normal = toOther / dist;
+
+                    // inward radial velocity
+                    float inRadVel = Vector2DotProduct((particles[particleID].vel - particles[otherParticleID].vel), normal);
+                    if (inRadVel <= 0) {
+                        continue;
+                    }
+
+                    float sigmoid = 0.8f;
+                    float beta = 0.2f;
+
+                    Vector2 impulse = normal * fixedTimeStep * ((1 - (dist / smoothingRadius)) * ((sigmoid * inRadVel) + (beta * (inRadVel * inRadVel))));
+
+                    particles[particleID].vel -= impulse / 2;
+                    particles[otherParticleID].vel += impulse / 2;
+                }
+            }
         }
 
         // save current positions and shift particle positions to projected positions
@@ -418,6 +511,91 @@ void Simulation::update(float deltaTime) {
         //rlReadShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
         //rlReadShaderBuffer(projectedPositionSSBO, projectedPositions.begin(), projectedPositions.getCount() * sizeof(Vector2), 0);
 
+        // spatial hash current positions
+        spatialHash.generateHashList(particles, objectPool, activeCount);
+        spatialHash.sortByCellHash();
+        spatialHash.generateLookup();
+
+        // adjust springs
+        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+            const Array<int2>& hashList = spatialHash.getHashList();
+            const Array<int2>& indexLookup = spatialHash.getIndexLookup();
+
+            int particleID = objectPool[poolIndex];
+
+            Vector2 pos = particles[particleID].pos;
+            int2 cellPos = spatialHash.getCellPos(pos);
+
+            for (int i = 0; i < 9; i++) {
+                int2 offsetCellPos = cellPos + cellOffsets[i];
+
+                if (!spatialHash.isValidCellPos(offsetCellPos)) {
+                    continue;
+                }
+
+                int cellHash = spatialHash.getCellHash(offsetCellPos);
+
+                int startIndex = indexLookup[cellHash].x;
+                if (startIndex < 0) {
+                    continue;
+                }
+
+                int endIndex = indexLookup[cellHash].y;
+
+                for (int j = startIndex; j < endIndex + 1; j++) {
+                    int otherParticleID = hashList[j].x;
+                    if (particleID >= otherParticleID) {
+                        continue;
+                    }
+
+                    Vector2 otherPos = particles[otherParticleID].pos;
+                    float sqrDist = Vector2DistanceSqr(pos, otherPos);
+
+                    if (sqrDist == 0 || sqrDist > sqrRadius) {
+                        continue;
+                    }
+
+                    Spring& spring = springs.getSpring(particleID, otherParticleID);
+
+                    // activate spring if doesn't already exist
+                    if (!spring.isActive) {
+                        spring.isActive = true;
+                        spring.restLength = smoothingRadius;
+                    }
+
+                    float plasticityConstant = 0.5f;
+                    float yieldRatio = 0.8f;
+                    float tolerableDeformation = spring.restLength * yieldRatio;
+
+                    float dist = sqrt(sqrDist);
+
+                    if (dist > spring.restLength + tolerableDeformation) { // stretching
+                        spring.restLength += (dist - spring.restLength - tolerableDeformation) * plasticityConstant * fixedTimeStep;
+                    }
+                    else if (dist < spring.restLength - tolerableDeformation) { // compressing
+                        spring.restLength -= (spring.restLength - tolerableDeformation - dist) * plasticityConstant * fixedTimeStep;
+                    }
+
+                    // deactivate spring if it has stretched beyond smoothing radius
+                    if (spring.restLength > smoothingRadius) {
+                        spring.isActive = false;
+                        continue;
+                    }
+
+                    // apply spring displacements
+                    Vector2 AtoB = particles[otherParticleID].pos - particles[particleID].pos;
+                    //float dist = Vector2Length(AtoB);
+                    Vector2 unitVec = AtoB / dist;
+
+                    float springCoefficient = 1.2f;
+                    Vector2 displacement = unitVec * springCoefficient * fixedTimeStep * fixedTimeStep * (1 - (spring.restLength / smoothingRadius)) * (spring.restLength - dist);
+                    particles[particleID].pos -= displacement / 2;
+                    particles[otherParticleID].pos += displacement / 2;
+                }
+            }
+        }
+
+        // spatial hash current positions
         spatialHash.generateHashList(particles, objectPool, activeCount);
         spatialHash.sortByCellHash();
         spatialHash.generateLookup();
@@ -437,24 +615,24 @@ void Simulation::update(float deltaTime) {
             particles[particleID].pos += pressureForce * ((fixedTimeStep * fixedTimeStep) / mass);
         }
 
-        // particle spawning
-        for (int i = 0; i < spawnAmount; i++) {
-            Vector2 spawnPos = { spawnArea.bounds.x + ((rand() * spawnArea.getWidth()) / RAND_MAX), spawnArea.bounds.y + ((rand() * spawnArea.getHeight()) / RAND_MAX) };
+        //// particle spawning
+        //for (int i = 0; i < spawnAmount; i++) {
+        //    Vector2 spawnPos = { spawnArea.bounds.x + ((rand() * spawnArea.getWidth()) / RAND_MAX), spawnArea.bounds.y + ((rand() * spawnArea.getHeight()) / RAND_MAX) };
 
-            spawnParticle(defaultMass, spawnPos, spawnArea.initVel);
-        }
+        //    spawnParticle(defaultMass, spawnPos, spawnArea.initVel);
+        //}
 
-        // particle despawning
-        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
-            int particleID = objectPool[poolIndex];
-            Vector2 particlePos = particles[particleID].pos;
+        //// particle despawning
+        //for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+        //    int particleID = objectPool[poolIndex];
+        //    Vector2 particlePos = particles[particleID].pos;
 
-            if (particlePos.x < despawnArea.bounds.x || particlePos.x > despawnArea.bounds.z || particlePos.y < despawnArea.bounds.y || particlePos.y > despawnArea.bounds.w) {
-                continue;
-            }
+        //    if (particlePos.x < despawnArea.bounds.x || particlePos.x > despawnArea.bounds.z || particlePos.y < despawnArea.bounds.y || particlePos.y > despawnArea.bounds.w) {
+        //        continue;
+        //    }
 
-            despawnParticle(poolIndex);
-        }
+        //    despawnParticle(poolIndex);
+        //}
 
         // airflow spaces
         for (int i = 0; i < airflows.getCount(); i++) {
@@ -479,19 +657,29 @@ void Simulation::update(float deltaTime) {
 
                 Vector2 BtoP = particles[particleID].pos - balls[i].pos;
                 float sqrDist = Vector2LengthSqr(BtoP);
+
+                float dist = sqrt(sqrDist);
+                Vector2 unitNormal = BtoP / dist;
+
+                float surfDist = dist - balls[i].radius;
+                if (surfDist < stickyDist) {
+                    float stickyCoefficient = 0.5f;
+                    Vector2 impulseStick = unitNormal * -stickyCoefficient * surfDist * (1 - (surfDist / stickyDist));
+                    particles[particleID].pos += impulseStick * fixedTimeStep;
+                }
+
                 if (sqrDist >= balls[i].radius * balls[i].radius) {
                     continue;
                 }
 
-                float dist = sqrt(sqrDist);
-                Vector2 unitNormal = BtoP / dist;
+                //float dist = sqrt(sqrDist);
+                //Vector2 unitNormal = BtoP / dist;
 
                 Vector2 velocity = (particles[particleID].pos - previousPositions[particleID]) / fixedTimeStep;
                 float velNormalMag = Vector2DotProduct(velocity, unitNormal);
                 Vector2 velNormal = unitNormal * velNormalMag;
                 Vector2 velTangent = velocity - velNormal;
-
-                float frictionCoefficient = 0.99f;
+                
                 Vector2 impulse = (velNormal - (velTangent * (1 - frictionCoefficient))) * -1;
                 particles[particleID].pos += impulse * fixedTimeStep * fixedTimeStep;
 

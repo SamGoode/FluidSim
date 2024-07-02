@@ -63,6 +63,112 @@ struct Ball {
     float radius;
 };
 
+//struct Spring {
+//    int particleIDA;
+//    int particleIDB;
+//    float restLength;
+//};
+
+struct Spring {
+    bool isActive;
+    float restLength;
+};
+
+class SpringBuffer {
+private:
+    int springCount;
+    Spring* springs;
+
+public:
+    SpringBuffer() {}
+
+    SpringBuffer(int _springCount) {
+        springCount = _springCount;
+        springs = new Spring[springCount * springCount];
+    }
+
+    SpringBuffer(const SpringBuffer& copy) {
+        springCount = copy.springCount;
+        int capacity = springCount * springCount;
+        springs = new Spring[capacity];
+        for (int i = 0; i < capacity; i++) {
+            springs[i] = copy.springs[i];
+        }
+    }
+
+    ~SpringBuffer() {
+        delete[] springs;
+    }
+
+    SpringBuffer& operator=(const SpringBuffer& copy) {
+        delete[] springs;
+
+        springCount = copy.springCount;
+        int capacity = springCount * springCount;
+        springs = new Spring[capacity];
+        for (int i = 0; i < capacity; i++) {
+            springs[i] = copy.springs[i];
+        }
+
+        return *this;
+    }
+
+    // capacity = (springCount^2 - springCount) / 2
+
+    // 01 02 03 04
+    // 12 13 14
+    // 23 24
+    // 34
+
+    // 00 01 02 03 04
+    // 10 11 12 13 14
+    // 20 21 22 23 24
+    // 30 31 32 33 34
+    // 40 41 42 43 44
+
+    // 01
+    // 02 12
+    // 03 13 23
+    // 04 14 24 34
+
+    // 00 10 20 30 40
+    // 01 11 21 31 41
+    // 02 12 22 32 42
+    // 03 13 23 33 43
+    // 04 14 24 34 44
+
+    int getCount() {
+        return springCount;
+    }
+
+    int getCapacity() {
+        return springCount * springCount;
+    }
+
+    int2 getIndices(int index) {
+        return { index % springCount, index / springCount };
+    }
+
+    Spring& getSpring(int index) {
+        if (index >= springCount * springCount) {
+            throw "index out of range";
+        }
+        return springs[index];
+    }
+
+    Spring& getSpring(int particleIndexA, int particleIndexB) {
+        if (particleIndexA >= particleIndexB) {
+            throw "invalid pairing";
+        }
+        if (particleIndexA >= springCount || particleIndexB >= springCount) {
+            throw "particleIndex out of range";
+        }
+
+        int springIndex = particleIndexA + particleIndexB * springCount;
+        return springs[springIndex];
+    }
+};
+
 class Simulation {
 private:
     Vector4 bounds;
@@ -72,6 +178,11 @@ private:
 
     Vector2 gravity;
     float collisionDampening;
+    float frictionCoefficient;
+    float stickyDist;
+
+    //Array<Spring> springs;
+    SpringBuffer springs;
 
     bool showSmoothingRadius;
     float smoothingRadius;

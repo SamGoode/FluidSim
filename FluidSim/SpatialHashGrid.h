@@ -36,7 +36,7 @@ public:
     bool isValidCellHash(int cellHash) { return { cellHash >= 0 && cellHash < cellCount }; }
     int getCellHash(int2 cellPos) { return (cellPos.x + cellPos.y * gridWidth); }
 
-    void generateHashList(const Array<Particle>& particles, const Array<int>& objectPool, int activeCount);
+    void generateHashList(const Array<Vector2>& positions, const Array<int>& objectPool, int activeCount);
     void sortByCellHash();
     void generateLookup();
 

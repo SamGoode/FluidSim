@@ -8,6 +8,7 @@ struct SimData {
     Vector2 gravity;
     float targetDensity;
     float fixedTimeStep;
+    int activeCount;
 };
 
 struct SpawnArea {
@@ -190,6 +191,7 @@ private:
     float particleRadius;
     float targetDensity;
     float pressureMultiplier;
+    float nearPressureMultiplier;
     float timeDilation;
 
     float mouseInteractRadius;
@@ -202,15 +204,20 @@ private:
     Array<Ball> balls;
 
     float defaultMass;
-    Array<Particle> particles;
+    //Array<Particle> particles;
     Array<int> objectPool;
     int activeCount;
 
     float fixedTimeStep;
     float timePassed;
 
+    // particle data
     Array<float> densities;
+    Array<float> nearDensities;
     Array<Vector2> previousPositions;
+    Array<Vector2> velocities;
+    Array<Vector2> positions;
+    Array<float> masses;
 
     SpatialHashGrid spatialHash;
     int2 cellOffsets[9];
@@ -224,7 +231,9 @@ private:
 
     SimData simData;
     unsigned int simDataSSBO;
-    unsigned int particleSSBO;
+    //unsigned int particleSSBO;
+    unsigned int poolSSBO;
+    unsigned int positionSSBO;
     unsigned int projectedPositionSSBO;
     unsigned int densitySSBO;
     unsigned int textureSSBO;
@@ -242,16 +251,20 @@ public:
     Vector2 convertToSimPos(Vector2 screenPos) { return { (screenPos.x - bounds.x) / scale, (screenPos.y - bounds.y) / scale }; }
     Vector2 convertToScreenPos(Vector2 simPos) { return { bounds.x + (simPos.x * scale), bounds.y + (simPos.y * scale) }; }
 
-    static float smoothing(float radius, float dist);
-    static float smoothingGradient(float radius, float dist);
+    static float densityKernel(float radius, float dist);
+    static float densityGradient(float radius, float dist);
+    static float nearDensityKernel(float radius, float dist);
+    static float nearDensityGradient(float radius, float dist);
     float calculateDensity(int particleID);
+    float calculateNearDensity(int particleID);
     float convertDensityToPressure(float density);
     float calculateSharedPressure(float densityA, float densityB);
-    Vector2 calculateGradientVec(int particleID);
+    Vector2 calculatePressureForce(int particleID);
 
     void spawnParticle(float mass, Vector2 pos, Vector2 vel);
     void despawnParticle(int particleID);
 
     void update(float deltaTime);
+    void stepForward();
     void draw();
 };

@@ -16,7 +16,7 @@ int main() {
 
     Simulation sim({ 400, 100, (float)screenWidth - 400, (float)screenHeight - 100 });
     // update once to initialise all values
-    sim.update(0.01f);
+    sim.stepForward();
 
     bool paused = true;
 
@@ -49,7 +49,7 @@ int main() {
 
         std::string mouseSimInfo = std::to_string(mouseSimPos.x) + "," + std::to_string(mouseSimPos.y);
         DrawText(mouseSimInfo.c_str(), 10, 60, 20, BLUE);
-        std::string smoothing = std::to_string(sim.smoothing(50, 0));
+        std::string smoothing = std::to_string(sim.densityKernel(50, 0));
         DrawText(smoothing.c_str(), 10, 80, 20, BLUE);
         //std::string density = std::to_string(sim.calculateDensity(mouseSimPos));
         //DrawText(density.c_str(), 10, 110, 20, BLUE);

@@ -25,16 +25,16 @@ Simulation::Simulation(Vector4 _bounds) {
     springs = SpringBuffer(MAX_PARTICLE_COUNT);
 
     showSmoothingRadius = false;
-    smoothingRadius = 1.5f;
+    smoothingRadius = 1.2f;
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5;
-    targetDensity = 1.2f;//smoothing(smoothingRadius, 0);
-    pressureMultiplier = 4;
-    nearPressureMultiplier = 4;
-    timeDilation = 2;
+    targetDensity = 3.f;//smoothing(smoothingRadius, 0);
+    pressureMultiplier = 50;
+    nearPressureMultiplier = 100;
+    timeDilation = 2.f;
 
     mouseInteractRadius = 5;
-    mouseInteractForce = 10;
+    mouseInteractForce = 8;
 
     spawnAmount = 10;
     spawnArea = {
@@ -557,8 +557,8 @@ void Simulation::stepForward() {
                     continue;
                 }
 
-                float sigmoid = 1.2f;
-                float beta = 0.2f;
+                float sigmoid = 0.2f;
+                float beta = 0.8f;
 
                 Vector2 impulse = normal * fixedTimeStep * ((1 - (dist / smoothingRadius)) * ((sigmoid * inRadVel) + (beta * (inRadVel * inRadVel))));
 
@@ -831,18 +831,38 @@ void Simulation::stepForward() {
     for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
         int particleID = objectPool[poolIndex];
 
-        if (positions[particleID].y + particleRadius >= getScaledHeight()) {
-            positions[particleID].y = (getScaledHeight() - particleRadius);
+        if (positions[particleID].y + smoothingRadius >= getScaledHeight()) {
+            //positions[particleID].y = (getScaledHeight() - smoothingRadius);
+            
+            float dist = getScaledHeight() - positions[particleID].y;
+            float value = (1 - (dist / smoothingRadius));
+            float pressure = value * value;
+            positions[particleID].y -= pressure * value;
         }
-        else if (positions[particleID].y - particleRadius <= 0) {
-            positions[particleID].y = particleRadius;
+        else if (positions[particleID].y - smoothingRadius <= 0) {
+            //positions[particleID].y = smoothingRadius;
+
+            float dist = positions[particleID].y;
+            float value = (1 - (dist / smoothingRadius));
+            float pressure = value * value;
+            positions[particleID].y += pressure * value;
         }
 
-        if (positions[particleID].x - particleRadius <= 0) {
-            positions[particleID].x = particleRadius;
+        if (positions[particleID].x - smoothingRadius <= 0) {
+            //positions[particleID].x = smoothingRadius;
+
+            float dist = positions[particleID].x;
+            float value = (1 - (dist / smoothingRadius));
+            float pressure = value * value;
+            positions[particleID].x += pressure * value;
         }
-        else if (positions[particleID].x + particleRadius >= getScaledWidth()) {
-            positions[particleID].x = (getScaledWidth() - particleRadius);
+        else if (positions[particleID].x + smoothingRadius >= getScaledWidth()) {
+            //positions[particleID].x = (getScaledWidth() - smoothingRadius);
+
+            float dist = getScaledWidth() - positions[particleID].x;
+            float value = (1 - (dist / smoothingRadius));
+            float pressure = value * value;
+            positions[particleID].x -= pressure * value;
         }
     }
 
@@ -874,6 +894,8 @@ void Simulation::stepForward() {
     rlDisableShader();
 
     //rlUpdateShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
+    simData.activeCount = activeCount;
+    rlUpdateShaderBuffer(simDataSSBO, &simData, sizeof(simData), 0);
     rlUpdateShaderBuffer(poolSSBO, objectPool.begin(), MAX_PARTICLE_COUNT * sizeof(int), 0);
     rlUpdateShaderBuffer(positionSSBO, positions.begin(), MAX_PARTICLE_COUNT * sizeof(Vector2), 0);
     rlUpdateShaderBuffer(densitySSBO, densities.begin(), MAX_PARTICLE_COUNT * sizeof(float), 0);

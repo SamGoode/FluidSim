@@ -52,7 +52,7 @@ void main() {
     if(poolIndex < simData.activeCount) {
         uint index = poolBuffer.particleIDs[poolIndex];
 
-        float densityError = simData.targetDensity / densityBuffer.densities[index];
+        float densityError = 1.5f / densityBuffer.densities[index];
         float r = 1 - abs(0.4 - densityError);
         float g = 1 - abs(0.7 - densityError);
         float b = densityError;

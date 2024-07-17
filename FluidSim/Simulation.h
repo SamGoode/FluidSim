@@ -1,6 +1,5 @@
 #pragma once
 #include "raylib.h"
-#include "Particle.h"
 #include "Array.h"
 #include "SpatialHashGrid.h"
 
@@ -9,6 +8,7 @@ struct SimData {
     float targetDensity;
     float fixedTimeStep;
     int activeCount;
+    float particleRadius;
 };
 
 struct SpawnArea {
@@ -181,6 +181,7 @@ private:
     float collisionDampening;
     float frictionCoefficient;
     float stickyDist;
+    float stickyCoefficient;
 
     //Array<Spring> springs;
     SpringBuffer springs;

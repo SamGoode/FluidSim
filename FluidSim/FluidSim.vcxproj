@@ -146,7 +146,6 @@
   <ItemGroup>
     <ClInclude Include="Array.h" />
     <ClInclude Include="int2.h" />
-    <ClInclude Include="Particle.h" />
     <ClInclude Include="RadixSort.h" />
     <ClInclude Include="RaylibOverloads.h" />
     <ClInclude Include="Simulation.h" />

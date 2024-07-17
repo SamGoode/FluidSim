@@ -2,7 +2,6 @@
 #include "raylib.h"
 #include "Array.h"
 #include "int2.h"
-#include "Particle.h"
 
 
 class SpatialHashGrid {

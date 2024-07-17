@@ -1,7 +1,6 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include "Simulation.h"
-#include "Particle.h"
 
 int main() {
     int screenWidth = 1600;

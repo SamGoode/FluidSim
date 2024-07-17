@@ -2,33 +2,21 @@
 
 // updating texture buffer
 
-#define MAX_PARTICLE_COUNT 4096
-// process 512 particles at a time
-#define WORKGROUP_SIZE 512
+#define MAX_PARTICLE_COUNT 16384
 
 #define SIM_WIDTH 800
 #define SIM_HEIGHT 600
-#define SCALE 8
+#define SCALE 6
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 16) in;
-
-struct Particle {
-    int isActive;
-    float mass;
-    vec2 pos;
-    vec2 vel;
-};
 
 layout(std430, binding = 1) buffer SimData {
     vec2 gravity;
     float targetDensity;
     float fixedTimeStep;
     int activeCount;
+    float particleRadius;
 } simData;
-
-//layout(std430, binding = 2) buffer ParticleBuffer {
-//    Particle particles[MAX_PARTICLE_COUNT];
-//} particleBuffer;
 
 layout(std430, binding = 2) buffer PositionBuffer {
     vec2 positions[MAX_PARTICLE_COUNT];
@@ -55,10 +43,22 @@ layout(std430, binding = 7) buffer LookupBuffer {
 } lookupBuffer;
 
 void main() {
-    uint cellIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+    ivec2 offsets[9] = {
+        ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
+        ivec2(-1, 0), ivec2(0, 0), ivec2(1, 0),
+        ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1)
+    };
 
-    ivec2 pixelPos = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 cellPos = ivec2(gl_WorkGroupID.xy) + offsets[gl_WorkGroupID.z];
+
+    if(cellPos.x < 0 || cellPos.x >= gl_NumWorkGroups.x || cellPos.y < 0 || cellPos.y >= gl_NumWorkGroups.y) {
+        return;
+    }
+
+    //uint cellIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+    uint cellIndex = cellPos.x + cellPos.y * gl_NumWorkGroups.x;
     
+    ivec2 pixelPos = ivec2(gl_GlobalInvocationID.xy);
     int localParticleIndex = int(gl_LocalInvocationID.z);
 
     int startIndex = lookupBuffer.lookup[cellIndex].x;
@@ -78,7 +78,7 @@ void main() {
 
         float dist = sqrt((particleToPixel.x * particleToPixel.x) + (particleToPixel.y * particleToPixel.y));
 
-        if(dist < 0.5 * SCALE) { // Replace with particle radius later
+        if(dist < simData.particleRadius * SCALE) { // Replace with particle radius later
             float densityError = 1.5f / densityBuffer.densities[particleIndex];
             float r = 1 - abs(0.4 - densityError);
             float g = 1 - abs(0.7 - densityError);
@@ -88,40 +88,4 @@ void main() {
             textureBuffer.pixels[pixelPos.x + pixelPos.y * SIM_WIDTH] = color;
         }
     }
-
-    //float value = float(particleCount) / 3;
-    //vec4 testColor = vec4(value, value, value, 1);
-    //textureBuffer.pixels[pixelPos.x + pixelPos.y * SIM_WIDTH] = testColor;
-
-    //if(cellX == 2 && cellY == 1) {
-        //textureBuffer.pixels[pixelPos.x + pixelPos.y * SIM_WIDTH] = vec4(0, 0, 0, 1);
-    //}
-    //float red = float(cellX)/gl_NumWorkGroups.x;
-    //float green = float(cellY)/gl_NumWorkGroups.y;
-
-    //vec4 testColor = vec4(red, green, 1, 1);
-    //textureBuffer.pixels[pixelPos.x + pixelPos.y * SIM_WIDTH] = testColor;
-
-    //uint poolIndex = gl_GlobalInvocationID.x;
-    //
-    //if (poolIndex < simData.activeCount) {
-    //    uint index = poolBuffer.particleIDs[poolIndex];
-    //
-    //    float densityError = 1.5f / densityBuffer.densities[index];
-    //    float r = 1 - abs(0.4 - densityError);
-    //    float g = 1 - abs(0.7 - densityError);
-    //    float b = densityError;
-    //    vec4 color = vec4(r, g, b, 1);
-    //
-    //    ivec2 pos = ivec2(positionBuffer.positions[index] * SCALE);
-    //    textureBuffer.pixels[(pos.x - 1) + (pos.y - 1) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x + 0) + (pos.y - 1) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x + 1) + (pos.y - 1) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x - 1) + (pos.y + 0) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x + 0) + (pos.y + 0) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x + 1) + (pos.y + 0) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x - 1) + (pos.y + 1) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x + 0) + (pos.y + 1) * SIM_WIDTH] = color;
-    //    textureBuffer.pixels[(pos.x + 1) + (pos.y + 1) * SIM_WIDTH] = color;
-    //}
 }

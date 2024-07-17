@@ -132,6 +132,10 @@ public:
         return ptr;
     }
 
+    T* begin() const {
+        return ptr;
+    }
+
     T* end() {
         return &ptr[count - 1] + 1;
     }

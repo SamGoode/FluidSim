@@ -4,8 +4,11 @@
 #include "RaylibOverloads.h"
 #include <algorithm>
 
-#define MAX_PARTICLE_COUNT 16384
+#define MAX_PARTICLE_COUNT 4096
 #define WORKGROUP_SIZE 512
+
+#define SIM_WIDTH 800
+#define SIM_HEIGHT 600
 
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
@@ -25,7 +28,7 @@ Simulation::Simulation(Vector4 _bounds) {
     springs = SpringBuffer(MAX_PARTICLE_COUNT);
 
     showSmoothingRadius = false;
-    smoothingRadius = 1.2f;
+    smoothingRadius = 1.4f;
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5;
     targetDensity = 3.f;//smoothing(smoothingRadius, 0);
@@ -191,6 +194,10 @@ Simulation::Simulation(Vector4 _bounds) {
         }
     }
 
+    spatialRendering = SpatialHashGrid({ getWidth(), getHeight() }, 8.f, 8.f);
+    unscaledPositions = Array<Vector2>(MAX_PARTICLE_COUNT);
+
+
     char* updateParticleCode = LoadFileText("updateParticle.glsl");
     unsigned int updateParticleShader = rlCompileShader(updateParticleCode, RL_COMPUTE_SHADER);
     updateParticleProgram = rlLoadComputeShaderProgram(updateParticleShader);
@@ -220,6 +227,9 @@ Simulation::Simulation(Vector4 _bounds) {
     positionSSBO = rlLoadShaderBuffer(MAX_PARTICLE_COUNT * sizeof(Vector2), NULL, RL_DYNAMIC_COPY);
     densitySSBO = rlLoadShaderBuffer(densities.getCount() * sizeof(float), NULL, RL_DYNAMIC_COPY);
     textureSSBO = rlLoadShaderBuffer(getWidth() * getHeight() * sizeof(Vector4), NULL, RL_DYNAMIC_COPY);
+    
+    hashListSSBO = rlLoadShaderBuffer(MAX_PARTICLE_COUNT * sizeof(int2), NULL, RL_DYNAMIC_COPY);
+    lookupSSBO = rlLoadShaderBuffer((SIM_WIDTH/8) * (SIM_HEIGHT/8) * sizeof(int2), NULL, RL_DYNAMIC_COPY);
 
     simData = {
         gravity,
@@ -234,6 +244,10 @@ Simulation::~Simulation() {
     rlUnloadShaderBuffer(simDataSSBO);
     //rlUnloadShaderBuffer(particleSSBO);
     rlUnloadShaderBuffer(positionSSBO);
+    rlUnloadShaderBuffer(poolSSBO);
+
+    rlUnloadShaderBuffer(hashListSSBO);
+    rlUnloadShaderBuffer(lookupSSBO);
     
     rlUnloadShaderBuffer(projectedPositionSSBO);
     rlUnloadShaderBuffer(densitySSBO);
@@ -557,7 +571,7 @@ void Simulation::stepForward() {
                     continue;
                 }
 
-                float sigmoid = 0.2f;
+                float sigmoid = 0.5f;
                 float beta = 0.8f;
 
                 Vector2 impulse = normal * fixedTimeStep * ((1 - (dist / smoothingRadius)) * ((sigmoid * inRadVel) + (beta * (inRadVel * inRadVel))));
@@ -602,7 +616,7 @@ void Simulation::stepForward() {
 
     //    int particleID = objectPool[poolIndex];
 
-    //    Vector2 pos = particles[particleID].pos;
+    //    Vector2 pos = positions[particleID];
     //    int2 cellPos = spatialHash.getCellPos(pos);
 
     //    for (int i = 0; i < 9; i++) {
@@ -627,7 +641,7 @@ void Simulation::stepForward() {
     //                continue;
     //            }
 
-    //            Vector2 otherPos = particles[otherParticleID].pos;
+    //            Vector2 otherPos = positions[otherParticleID];
     //            float sqrDist = Vector2DistanceSqr(pos, otherPos);
 
     //            if (sqrDist == 0 || sqrDist > sqrRadius) {
@@ -643,7 +657,7 @@ void Simulation::stepForward() {
     //            }
 
     //            float plasticityConstant = 0.5f;
-    //            float yieldRatio = 0.8f;
+    //            float yieldRatio = 1.5f;
     //            float tolerableDeformation = spring.restLength * yieldRatio;
 
     //            float dist = sqrt(sqrDist);
@@ -662,14 +676,14 @@ void Simulation::stepForward() {
     //            }
 
     //            // apply spring displacements
-    //            Vector2 AtoB = particles[otherParticleID].pos - particles[particleID].pos;
+    //            Vector2 AtoB = positions[otherParticleID] - positions[particleID];
     //            //float dist = Vector2Length(AtoB);
     //            Vector2 unitVec = AtoB / dist;
 
-    //            float springCoefficient = 1.2f;
+    //            float springCoefficient = 2.2f;
     //            Vector2 displacement = unitVec * springCoefficient * fixedTimeStep * fixedTimeStep * (1 - (spring.restLength / smoothingRadius)) * (spring.restLength - dist);
-    //            particles[particleID].pos -= displacement / 2;
-    //            particles[otherParticleID].pos += displacement / 2;
+    //            positions[particleID] -= displacement / 2;
+    //            positions[otherParticleID] += displacement / 2;
     //        }
     //    }
     //}
@@ -893,6 +907,23 @@ void Simulation::stepForward() {
     rlComputeShaderDispatch((int)ceil((resolution.x * resolution.y) / WORKGROUP_SIZE), 1, 1);
     rlDisableShader();
 
+    // subdivide the pixel space into 8x8 squares of pixels assuming each contains a max of 16 particles
+
+    // unscaling first
+    for (int i = 0; i < MAX_PARTICLE_COUNT; i++) {
+        Vector2 pos = positions[i];
+        unscaledPositions[i] = pos * scale;
+    }
+
+    spatialRendering.generateHashList(unscaledPositions, objectPool, MAX_PARTICLE_COUNT);
+    spatialRendering.sortByCellHash();
+    spatialRendering.generateLookup();
+
+    rlUpdateShaderBuffer(hashListSSBO, spatialRendering.getHashList().begin(), MAX_PARTICLE_COUNT * sizeof(int2), 0);
+    rlUpdateShaderBuffer(lookupSSBO, spatialRendering.getIndexLookup().begin(), (SIM_WIDTH / 8) * (SIM_HEIGHT / 8) * sizeof(int2), 0);
+
+    //rlComputeShaderDispatch(SIM_WIDTH / 8, SIM_HEIGHT / 8, 1);
+
     //rlUpdateShaderBuffer(particleSSBO, particles.begin(), particles.getCount() * sizeof(Particle), 0);
     simData.activeCount = activeCount;
     rlUpdateShaderBuffer(simDataSSBO, &simData, sizeof(simData), 0);
@@ -907,11 +938,17 @@ void Simulation::stepForward() {
     rlBindShaderBuffer(densitySSBO, 3);
     rlBindShaderBuffer(textureSSBO, 4);
     rlBindShaderBuffer(poolSSBO, 5);
-    int dispatches = MAX_PARTICLE_COUNT / WORKGROUP_SIZE;
-    if (MAX_PARTICLE_COUNT % WORKGROUP_SIZE != 0) {
-        dispatches++;
-    }
-    rlComputeShaderDispatch(dispatches, 1, 1);
+
+    rlBindShaderBuffer(hashListSSBO, 6);
+    rlBindShaderBuffer(lookupSSBO, 7);
+
+    rlComputeShaderDispatch(SIM_WIDTH / 8, SIM_HEIGHT / 8, 1);
+
+    //int dispatches = MAX_PARTICLE_COUNT / WORKGROUP_SIZE;
+    //if (MAX_PARTICLE_COUNT % WORKGROUP_SIZE != 0) {
+    //    dispatches++;
+    //}
+    //rlComputeShaderDispatch(dispatches, 1, 1);
     rlDisableShader();
 }
 

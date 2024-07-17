@@ -221,6 +221,8 @@ private:
 
     SpatialHashGrid spatialHash;
     int2 cellOffsets[9];
+    SpatialHashGrid spatialRendering;
+    Array<Vector2> unscaledPositions;
 
     unsigned int updateParticleProgram;
     unsigned int gravProjectionProgram;
@@ -237,6 +239,9 @@ private:
     unsigned int projectedPositionSSBO;
     unsigned int densitySSBO;
     unsigned int textureSSBO;
+
+    unsigned int hashListSSBO;
+    unsigned int lookupSSBO;
 
 public:
     Simulation(Vector4 _bounds);

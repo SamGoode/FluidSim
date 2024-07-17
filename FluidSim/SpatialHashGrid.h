@@ -4,6 +4,7 @@
 #include "int2.h"
 #include "Particle.h"
 
+
 class SpatialHashGrid {
 private:
     Vector2 size;

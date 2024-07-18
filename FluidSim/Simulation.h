@@ -64,12 +64,6 @@ struct Ball {
     float radius;
 };
 
-//struct Spring {
-//    int particleIDA;
-//    int particleIDB;
-//    float restLength;
-//};
-
 struct Spring {
     bool isActive;
     float restLength;
@@ -178,7 +172,6 @@ private:
     Texture texture;
 
     Vector2 gravity;
-    float collisionDampening;
     float frictionCoefficient;
     float stickyDist;
     float stickyCoefficient;
@@ -205,7 +198,6 @@ private:
     Array<Ball> balls;
 
     float defaultMass;
-    //Array<Particle> particles;
     Array<int> objectPool;
     int activeCount;
 
@@ -234,7 +226,6 @@ private:
 
     SimData simData;
     unsigned int simDataSSBO;
-    //unsigned int particleSSBO;
     unsigned int poolSSBO;
     unsigned int positionSSBO;
     unsigned int projectedPositionSSBO;

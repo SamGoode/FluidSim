@@ -20,7 +20,6 @@ Simulation::Simulation(Vector4 _bounds) {
     UnloadImage(whiteImage);
 
     gravity = { 0, 0 };
-    //collisionDampening = 0.1;
     frictionCoefficient = 0.8f;
     stickyDist = 1.f;
     stickyCoefficient = 1.f;
@@ -38,7 +37,7 @@ Simulation::Simulation(Vector4 _bounds) {
     timeDilation = 1.5f;
 
     mouseInteractRadius = 5;
-    mouseInteractForce = 8;
+    mouseInteractForce = 16;
 
     spawnAmount = 20;
     spawnArea = {
@@ -150,7 +149,7 @@ Simulation::Simulation(Vector4 _bounds) {
     positions = Array<Vector2>(MAX_PARTICLE_COUNT);
     velocities = Array<Vector2>(MAX_PARTICLE_COUNT);
     masses = Array<float>(MAX_PARTICLE_COUNT);
-    //particles = Array<Particle>(MAX_PARTICLE_COUNT);
+
     objectPool = Array<int>(MAX_PARTICLE_COUNT);
     for (int i = 0; i < MAX_PARTICLE_COUNT; i++) {
         objectPool[i] = i;
@@ -470,19 +469,22 @@ void Simulation::spawnParticle(float mass, Vector2 pos, Vector2 vel) {
         return;
     }
 
-    previousPositions[objectPool[activeCount]] = pos;
-    masses[objectPool[activeCount]] = mass;
-    positions[objectPool[activeCount]] = pos;
-    velocities[objectPool[activeCount]] = vel;
     activeCount++;
+    int particleID = objectPool[activeCount - 1];
+
+    previousPositions[particleID] = pos;
+    masses[particleID] = mass;
+    positions[particleID] = pos;
+    velocities[particleID] = vel;
 }
 
 void Simulation::despawnParticle(int poolIndex) {
     int particleID = objectPool[poolIndex];
 
-    objectPool[poolIndex] = objectPool[activeCount - 1];
-    objectPool[activeCount - 1] = particleID;
     activeCount--;
+
+    objectPool[poolIndex] = objectPool[activeCount];
+    objectPool[activeCount] = particleID;
 }
 
 void Simulation::update(float deltaTime) {

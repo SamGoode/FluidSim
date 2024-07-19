@@ -6,7 +6,7 @@
 
 #define SIM_WIDTH 800
 #define SIM_HEIGHT 600
-#define SCALE 6
+#define SCALE 8
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 16) in;
 

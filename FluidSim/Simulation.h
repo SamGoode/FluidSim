@@ -230,6 +230,8 @@ private:
     unsigned int positionSSBO;
     unsigned int projectedPositionSSBO;
     unsigned int densitySSBO;
+
+    unsigned int defaultTextureSSBO;
     unsigned int textureSSBO;
 
     unsigned int hashListSSBO;
@@ -262,6 +264,6 @@ public:
     void despawnParticle(int particleID);
 
     void update(float deltaTime);
-    void stepForward();
+    void stepForward(float timeStep);
     void draw();
 };

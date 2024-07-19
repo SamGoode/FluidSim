@@ -15,7 +15,7 @@ int main() {
 
     Simulation sim({ 400, 100, (float)screenWidth - 400, (float)screenHeight - 100 });
     // update once to initialise all values
-    sim.stepForward();
+    sim.stepForward(0.02f);
 
     bool paused = true;
 

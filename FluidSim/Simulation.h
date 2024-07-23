@@ -159,6 +159,7 @@ public:
     std::pair<float, float> calculateDensity(int particleID);
     float convertDensityToPressure(float density);
     Vector2 calculatePressureForce(int particleID);
+    void applyPressureDisplacements(int particleID, float deltaTime);
     Vector2 calculateViscosityImpulse(int particleID);
 
     void spawnParticle(float mass, Vector2 pos, Vector2 vel);

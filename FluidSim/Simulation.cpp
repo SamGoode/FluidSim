@@ -25,7 +25,7 @@ Simulation::Simulation(Vector4 _bounds) {
     stickyCoefficient = 0.1f;
 
     viscLinear = 0.f;
-    viscQuad = 0.4f;
+    viscQuad = 0.2f;
 
     showSmoothingRadius = false;
     smoothingRadius = 2.f;
@@ -100,7 +100,7 @@ Simulation::Simulation(Vector4 _bounds) {
     fixedTimeStep = 0.02f;
     timePassed = 0;
     timeStepUpperBound = 0.1f;
-    timeStepLowerBound = 0.02f;
+    timeStepLowerBound = 0.015f;
 
     defaultMass = 1;
     densities = Array<float>(MAX_PARTICLE_COUNT);
@@ -134,7 +134,6 @@ Simulation::Simulation(Vector4 _bounds) {
         velocities[i] = { 0, 0 };
         masses[i] = defaultMass;
 
-        //particles[i] = { 1, defaultMass, position, vel };
     }
 
     maxVelocity = 0;
@@ -221,8 +220,6 @@ Simulation::~Simulation() {
 // density kernel
 // dist should never exceed radius
 float Simulation::densityKernel(float radius, float dist) {
-    //float difference = radius - dist;
-    //float value = (difference * difference) / (radius * radius);
     float value = 1 - (dist / radius);
     return value * value;
 }
@@ -279,7 +276,7 @@ std::pair<float, float> Simulation::calculateDensity(int particleID) {
 }
 
 float Simulation::convertDensityToPressure(float density) {
-    float densityError = density - targetDensity;//std::max(0.f, density - targetDensity);
+    float densityError = density - targetDensity;
     float pressure = densityError * pressureMultiplier;
     return pressure;
 }
@@ -287,8 +284,6 @@ float Simulation::convertDensityToPressure(float density) {
 Vector2 Simulation::calculatePressureForce(int particleID) {
     const Array<int2>& hashList = spatialHash.getHashList();
     const Array<int2>& indexLookup = spatialHash.getIndexLookup();
-
-    float density = densities[particleID];
 
     Vector2 pos = positions[particleID];
     int2 cellPos = spatialHash.getCellPos(pos);
@@ -348,6 +343,75 @@ Vector2 Simulation::calculatePressureForce(int particleID) {
     }
 
     return pressureForce;
+}
+
+void Simulation::applyPressureDisplacements(int particleID, float deltaTime) {
+    const Array<int2>& hashList = spatialHash.getHashList();
+    const Array<int2>& indexLookup = spatialHash.getIndexLookup();
+
+    Vector2 pos = positions[particleID];
+    int2 cellPos = spatialHash.getCellPos(pos);
+
+    Vector2 pressureForceSum = { 0, 0 };
+    for (int i = 0; i < 9; i++) {
+        int2 offsetCellPos = cellPos + cellOffsets[i];
+
+        if (!spatialHash.isValidCellPos(offsetCellPos)) {
+            continue;
+        }
+
+        int offsetCellHash = spatialHash.getCellHash(offsetCellPos);
+
+        int startIndex = indexLookup[offsetCellHash].x;
+        if (startIndex < 0) {
+            continue;
+        }
+
+        int endIndex = indexLookup[offsetCellHash].y;
+
+        for (int n = startIndex; n < endIndex + 1; n++) {
+            int otherParticleID = hashList[n].x;
+            if (particleID == otherParticleID) {
+                continue;
+            }
+
+            Vector2 otherPos = positions[otherParticleID];
+            Vector2 posToOtherPos = otherPos - pos;
+
+            float sqrDist = Vector2LengthSqr(posToOtherPos);
+            if (sqrDist > sqrRadius) {
+                continue;
+            }
+
+            float dist = sqrt(sqrDist);
+            Vector2 dir;
+
+            if (dist == 0) {
+                // generate random direction vector if other particle is right on top of this one
+                float randAngle = (rand() * 2 * PI) / RAND_MAX;
+                dir = { (float)cos(randAngle), (float)sin(randAngle) };
+            }
+            else {
+                // unit direction vector
+                dir = posToOtherPos / dist;
+            }
+
+            float pressure = (densities[otherParticleID] - targetDensity) * pressureMultiplier;
+            float nearPressure = nearDensities[otherParticleID] * nearPressureMultiplier;
+
+            float weight = 1 - (dist / smoothingRadius);
+
+            float sharedPressure = (pressure * weight + nearPressure * weight * weight);
+            float pressureForce = sharedPressure / 2;
+
+            // BIG PROBLEM HERE TO FIX, THIS DOESN'T CONSERVE LINEAR MOMENTUM
+            //pressureForce -= dir * (pressure * weight + nearPressure * weight * weight) / 2;
+            positions[otherParticleID] += dir * (deltaTime * deltaTime * pressureForce / masses[otherParticleID]);
+            pressureForceSum -= dir * pressureForce;
+        }
+    }
+
+    positions[particleID] += pressureForceSum * (deltaTime * deltaTime / masses[particleID]);
 }
 
 Vector2 Simulation::calculateViscosityImpulse(int particleID) {
@@ -502,13 +566,20 @@ void Simulation::stepForward() {
         nearDensities[particleID] = densityPair.second;
     }
 
+    //// calculate cumulative pressure forces and apply them
+    //for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+    //    int particleID = objectPool[poolIndex];
+
+    //    float mass = masses[particleID];
+    //    Vector2 pressureForce = calculatePressureForce(particleID);
+    //    positions[particleID] += pressureForce * ((timeStep * timeStep) / mass);
+    //}
+
     // calculate cumulative pressure forces and apply them
     for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
         int particleID = objectPool[poolIndex];
 
-        float mass = masses[particleID];
-        Vector2 pressureForce = calculatePressureForce(particleID);
-        positions[particleID] += pressureForce * ((timeStep * timeStep) / mass);
+        applyPressureDisplacements(particleID, timeStep);
     }
 
     //// particle spawning

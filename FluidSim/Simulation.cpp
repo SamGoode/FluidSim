@@ -31,9 +31,9 @@ Simulation::Simulation(Vector4 _bounds) {
     smoothingRadius = 2.f;
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5f;
-    targetDensity = 1.5f;
+    targetDensity = 2.f;
     pressureMultiplier = 10;
-    nearPressureMultiplier = 20;
+    nearPressureMultiplier = 100;
     timeDilation = 2.f;
 
     mouseInteractRadius = 8;
@@ -133,7 +133,6 @@ Simulation::Simulation(Vector4 _bounds) {
 
         velocities[i] = { 0, 0 };
         masses[i] = defaultMass;
-
     }
 
     maxVelocity = 0;
@@ -404,7 +403,6 @@ void Simulation::applyPressureDisplacements(int particleID, float deltaTime) {
             float sharedPressure = (pressure * weight + nearPressure * weight * weight);
             float pressureForce = sharedPressure / 2;
 
-            // BIG PROBLEM HERE TO FIX, THIS DOESN'T CONSERVE LINEAR MOMENTUM
             //pressureForce -= dir * (pressure * weight + nearPressure * weight * weight) / 2;
             positions[otherParticleID] += dir * (deltaTime * deltaTime * pressureForce / masses[otherParticleID]);
             pressureForceSum -= dir * pressureForce;
@@ -708,25 +706,34 @@ void Simulation::stepForward() {
         }
     }
 
+    //float pressure = (densities[otherParticleID] - targetDensity) * pressureMultiplier;
+    //float nearPressure = nearDensities[otherParticleID] * nearPressureMultiplier;
+
+    //float weight = 1 - (dist / smoothingRadius);
+
+    //pressureForce -= dir * (pressure * weight + nearPressure * weight * weight) / 2;
+
     // boundary collision check
     for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
         int particleID = objectPool[poolIndex];
+
+        float pressure = targetDensity * nearPressureMultiplier * 1.5f;
 
         if (positions[particleID].y + smoothingRadius >= getScaledHeight()) {
             //positions[particleID].y = (getScaledHeight() - smoothingRadius);
             
             float dist = getScaledHeight() - positions[particleID].y;
             float value = (1 - (dist / smoothingRadius));
-            float pressure = value * value;
-            positions[particleID].y -= pressure * value * timeStep;
+            
+            positions[particleID].y -= pressure * value * value * timeStep * timeStep;
         }
         else if (positions[particleID].y - smoothingRadius <= 0) {
             //positions[particleID].y = smoothingRadius;
 
             float dist = positions[particleID].y;
             float value = (1 - (dist / smoothingRadius));
-            float pressure = value * value;
-            positions[particleID].y += pressure * value * timeStep;
+            
+            positions[particleID].y += pressure * value * value * timeStep * timeStep;
         }
 
         if (positions[particleID].x - smoothingRadius <= 0) {
@@ -734,16 +741,16 @@ void Simulation::stepForward() {
 
             float dist = positions[particleID].x;
             float value = (1 - (dist / smoothingRadius));
-            float pressure = value * value;
-            positions[particleID].x += pressure * value * timeStep;
+            
+            positions[particleID].x += pressure * value * value * timeStep * timeStep;
         }
         else if (positions[particleID].x + smoothingRadius >= getScaledWidth()) {
             //positions[particleID].x = (getScaledWidth() - smoothingRadius);
 
             float dist = getScaledWidth() - positions[particleID].x;
             float value = (1 - (dist / smoothingRadius));
-            float pressure = value * value;
-            positions[particleID].x -= pressure * value * timeStep;
+            
+            positions[particleID].x -= pressure * value * value * timeStep * timeStep;
         }
     }
 

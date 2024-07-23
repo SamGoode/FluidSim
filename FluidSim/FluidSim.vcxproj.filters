@@ -49,16 +49,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="updateParticle.glsl">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="gravProjection.glsl">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="renderSim.glsl">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="clearTextureBuffer.glsl">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="updateTextureBuffer.glsl">

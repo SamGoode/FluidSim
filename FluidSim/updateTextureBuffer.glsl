@@ -6,7 +6,7 @@
 
 #define SIM_WIDTH 800
 #define SIM_HEIGHT 600
-#define SCALE 8
+#define SCALE 6
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 16) in;
 
@@ -72,9 +72,9 @@ void main() {
     if(localParticleIndex < particleCount) {
         int particleIndex = hashListBuffer.hashList[startIndex + localParticleIndex].x;
         
-        ivec2 particlePos = ivec2(positionBuffer.positions[particleIndex] * SCALE);
+        vec2 particlePos = positionBuffer.positions[particleIndex] * SCALE;
 
-        ivec2 particleToPixel = pixelPos - particlePos;
+        vec2 particleToPixel = vec2(pixelPos) - particlePos;
 
         float dist = sqrt((particleToPixel.x * particleToPixel.x) + (particleToPixel.y * particleToPixel.y));
 

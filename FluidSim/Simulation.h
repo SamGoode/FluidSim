@@ -52,16 +52,16 @@ struct DespawnArea {
     }
 };
 
-struct AirflowSpace {
-    Vector2 pos;
-    float width;
-    float height;
-    Vector2 force;
-};
-
 struct Ball {
     Vector2 pos;
     float radius;
+};
+
+struct Rect {
+    Vector2 pos;
+    float width;
+    float height;
+    float rotation;
 };
 
 class Simulation {
@@ -93,9 +93,10 @@ private:
 
     int spawnAmount;
     SpawnArea spawnArea;
-    DespawnArea despawnArea;
-    Array<AirflowSpace> airflows;
+    //DespawnArea despawnArea;
+    Array<DespawnArea> despawnAreas;
     Array<Ball> balls;
+    Array<Rect> rects;
 
     float defaultMass;
     Array<int> objectPool;

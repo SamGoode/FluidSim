@@ -5,7 +5,6 @@
 #include <algorithm>
 
 #define MAX_PARTICLE_COUNT 16384
-#define WORKGROUP_SIZE 512
 
 #define SIM_WIDTH 800
 #define SIM_HEIGHT 600
@@ -20,7 +19,7 @@ Simulation::Simulation(Vector4 _bounds) {
     UnloadImage(whiteImage);
 
     gravity = { 0, 1 };
-    frictionCoefficient = 0.5f;
+    frictionCoefficient = 0.05f;
     stickyDist = 1.f;
     stickyCoefficient = 0.1f;
 
@@ -32,75 +31,88 @@ Simulation::Simulation(Vector4 _bounds) {
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5f;
     targetDensity = 2.f;
-    pressureMultiplier = 10;
-    nearPressureMultiplier = 100;
+    pressureMultiplier = 50;
+    nearPressureMultiplier = 200;
     timeDilation = 2.f;
 
     mouseInteractRadius = 8;
-    mouseInteractForce = 10;
+    mouseInteractForce = 15;
 
-    spawnAmount = 5;
+    spawnAmount = 10;
     spawnArea = {
         {0, 0, 2, 100},
-        {8, 0}
+        {20, 0}
     };
 
-    despawnArea = {
+    despawnAreas = Array<DespawnArea>(3);
+    despawnAreas[0] = {
         {131.33f, 0, 133.33f, 100}
     };
+    despawnAreas[1] = {
+        {0, 0, 133.33f, 2}
+    };
+    despawnAreas[2] = {
+        {0, 98, 133.33f, 100}
+    };
 
-    airflows = Array<AirflowSpace>(0);
+    balls = Array<Ball>(11);
+    balls[0] = {
+        {67, 51},
+        6
+    };
+    balls[1] = {
+        {69, 51},
+        7
+    };
+    balls[2] = {
+        {72, 50.5},
+        8
+    };
+    balls[3] = {
+        {76, 50},
+        9.5
+    };
+    balls[4] = {
+        {80, 50},
+        10
+    };
+    balls[5] = {
+        {85, 50},
+        10
+    };
+    balls[6] = {
+        {89, 51},
+        9
+    };
+    balls[7] = {
+        {92, 52},
+        8
+    };
+    balls[8] = {
+        {95, 53},
+        7
+    };
+    balls[9] = {
+        {98, 54},
+        6
+    };
+    balls[10] = {
+        {100, 55},
+        5
+    };
 
-    balls = Array<Ball>(0);
-    //balls[0] = {
-    //    {67, 51},
-    //    6
-    //};
-    //balls[1] = {
-    //    {69, 51},
-    //    7
-    //};
-    //balls[2] = {
-    //    {72, 50.5},
-    //    8
-    //};
-    //balls[3] = {
-    //    {76, 50},
-    //    9.5
-    //};
-    //balls[4] = {
-    //    {80, 50},
-    //    10
-    //};
-    //balls[5] = {
-    //    {85, 50},
-    //    10
-    //};
-    //balls[6] = {
-    //    {89, 51},
-    //    9
-    //};
-    //balls[7] = {
-    //    {92, 52},
-    //    8
-    //};
-    //balls[8] = {
-    //    {95, 53},
-    //    7
-    //};
-    //balls[9] = {
-    //    {98, 54},
-    //    6
-    //};
-    //balls[10] = {
-    //    {100, 55},
-    //    5
-    //};
+    rects = Array<Rect>(1);
+    rects[0] = {
+        {20, 60},
+        10,
+        15,
+        0.f
+    };
 
     fixedTimeStep = 0.02f;
     timePassed = 0;
     timeStepUpperBound = 0.1f;
-    timeStepLowerBound = 0.015f;
+    timeStepLowerBound = 0.02f;
 
     defaultMass = 1;
     densities = Array<float>(MAX_PARTICLE_COUNT);
@@ -114,7 +126,7 @@ Simulation::Simulation(Vector4 _bounds) {
     for (int i = 0; i < MAX_PARTICLE_COUNT; i++) {
         objectPool[i] = i;
     }
-    activeCount = 4000;
+    activeCount = 0;
     
     // initiate particles at random positions and with random velocities
     for (int i = 0; i < activeCount; i++) {
@@ -588,74 +600,189 @@ void Simulation::stepForward() {
     //}
 
     //// particle despawning
-    //for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
-    //    int particleID = objectPool[poolIndex];
-    //    Vector2 particlePos = positions[particleID];
+    //for (int i = 0; i < despawnAreas.getCount(); i++) {
+    //    for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+    //        int particleID = objectPool[poolIndex];
+    //        Vector2 particlePos = positions[particleID];
 
-    //    if (particlePos.x < despawnArea.bounds.x || particlePos.x > despawnArea.bounds.z || particlePos.y < despawnArea.bounds.y || particlePos.y > despawnArea.bounds.w) {
-    //        continue;
+    //        if (particlePos.x < despawnAreas[i].bounds.x || particlePos.x > despawnAreas[i].bounds.z || particlePos.y < despawnAreas[i].bounds.y || particlePos.y > despawnAreas[i].bounds.w) {
+    //            continue;
+    //        }
+
+    //        despawnParticle(poolIndex);
     //    }
-
-    //    despawnParticle(poolIndex);
     //}
-
-    // airflow spaces
-    for (int i = 0; i < airflows.getCount(); i++) {
-        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
-            int particleID = objectPool[poolIndex];
-
-            Vector2 particlePos = positions[particleID];
-            float mass = masses[particleID];
-
-            if (particlePos.x < airflows[i].pos.x || particlePos.x > airflows[i].pos.x + airflows[i].width || particlePos.y < airflows[i].pos.y || particlePos.y > airflows[i].pos.y + airflows[i].height) {
-                continue;
-            }
-
-            positions[particleID] += airflows[i].force * (timeStep * timeStep / mass);
-        }
-    }
+    
 
     // ball collisions
     for (int i = 0; i < balls.getCount(); i++) {
         for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
             int particleID = objectPool[poolIndex];
 
-            Vector2 BtoP = positions[particleID] - balls[i].pos;
-            float sqrDist = Vector2LengthSqr(BtoP);
-
-            float dist = sqrt(sqrDist);
-            Vector2 unitNormal = BtoP / dist;
-
-            float surfDist = dist - balls[i].radius;
-            if (surfDist < stickyDist) {
-                Vector2 impulseStick = unitNormal * -stickyCoefficient * surfDist * (1 - (surfDist / stickyDist));
-                positions[particleID] += impulseStick * timeStep;
-            }
-
-            if (sqrDist >= balls[i].radius * balls[i].radius) {
-                continue;
-            }
+            // Sticky Code
+            //Vector2 BtoP = positions[particleID] - balls[i].pos;
+            //float sqrDist = Vector2LengthSqr(BtoP);
 
             //float dist = sqrt(sqrDist);
             //Vector2 unitNormal = BtoP / dist;
 
-            Vector2 velocity = (positions[particleID] - previousPositions[particleID]) / timeStep;
-            float velNormalMag = Vector2DotProduct(velocity, unitNormal);
-            Vector2 velNormal = unitNormal * velNormalMag;
-            Vector2 velTangent = velocity - velNormal;
+            //float surfDist = dist - balls[i].radius - particleRadius;
+            //if (surfDist < stickyDist) {
+            //    Vector2 impulseStick = unitNormal * -stickyCoefficient * surfDist * (1 - (surfDist / stickyDist));
+            //    positions[particleID] += impulseStick * timeStep;
+            //}
 
-            Vector2 impulse = (velNormal - (velTangent * (1 - frictionCoefficient))) * -1;
-            positions[particleID] += impulse * timeStep * timeStep;
+            //if (sqrDist >= balls[i].radius * balls[i].radius) {
+            //    continue;
+            //}
 
-            BtoP = positions[particleID] - balls[i].pos;
-            sqrDist = Vector2LengthSqr(BtoP);
-            if (sqrDist >= balls[i].radius * balls[i].radius) {
+            // Collision Code
+            Vector2 BtoP = positions[particleID] - balls[i].pos;
+            float dist = Vector2Length(BtoP);
+            float signedDistance = dist - balls[i].radius;
+
+            if (signedDistance > particleRadius) {
                 continue;
             }
 
-            dist = sqrt(sqrDist);
-            unitNormal = BtoP / dist;
-            positions[particleID] += unitNormal * (balls[i].radius - dist);
+            Vector2 unitNormal = BtoP / dist;
+            
+            Vector2 velocity = (positions[particleID] - previousPositions[particleID]) / timeStep;
+
+            Vector2 velNormal = unitNormal * Vector2DotProduct(velocity, unitNormal);
+            Vector2 velTangent = velocity - velNormal;
+
+            Vector2 impulse = (velNormal * -1) - (velTangent * frictionCoefficient);
+            positions[particleID] += impulse * timeStep;
+
+            // Extraction Code
+            Vector2 updatedBtoP = positions[particleID] - balls[i].pos;
+            float updatedDist = Vector2Length(BtoP);
+            float updatedSignedDistance = updatedDist - balls[i].radius;
+
+            if (updatedSignedDistance > particleRadius) {
+                continue;
+            }
+
+            Vector2 updatedUnitNormal = BtoP / updatedDist;
+            positions[particleID] += updatedUnitNormal * -(updatedSignedDistance - particleRadius);
+        }
+    }
+
+    // rect collisions
+    for (int i = 0; i < rects.getCount(); i++) {
+        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+            int particleID = objectPool[poolIndex];
+
+            // Sticky Code
+            //Vector2 BtoP = positions[particleID] - balls[i].pos;
+            //float sqrDist = Vector2LengthSqr(BtoP);
+
+            //float dist = sqrt(sqrDist);
+            //Vector2 unitNormal = BtoP / dist;
+
+            //float surfDist = dist - balls[i].radius - particleRadius;
+            //if (surfDist < stickyDist) {
+            //    Vector2 impulseStick = unitNormal * -stickyCoefficient * surfDist * (1 - (surfDist / stickyDist));
+            //    positions[particleID] += impulseStick * timeStep;
+            //}
+
+            //if (sqrDist >= balls[i].radius * balls[i].radius) {
+            //    continue;
+            //}
+
+            // Collision Code
+
+            float signedDistance;
+            Vector2 unitNormal;
+
+            // temporary implementation
+            Vector2 particlePos = positions[particleID];
+            Vector2 offset = particlePos - rects[i].pos;
+            Vector2 endOffset = offset - Vector2{ rects[i].width, rects[i].height };
+            
+            //Vector2 centre = rects[i].pos + Vector2{ rects[i].width / 2, rects[i].height / 2 };
+            //Vector2 dist = particlePos - centre;
+            //std::max(abs(dist.x, 0.f);
+
+            if (offset.x + particleRadius < 0 || endOffset.x - particleRadius > 0 || offset.y + particleRadius < 0 || endOffset.y - particleRadius > 0) {
+                continue;
+            }
+
+            float distances[4];
+            distances[0] = -offset.x;
+            distances[1] = endOffset.x;
+            distances[2] = -offset.y;
+            distances[3] = endOffset.y;
+
+            int minIndex = 0;
+            for (int n = 0; n < 4; n++) {
+                if (abs(distances[minIndex]) > abs(distances[n])) {
+                    minIndex = n;
+                }
+            }
+
+            switch (minIndex) {
+            case 0:
+                unitNormal = { -1, 0 };
+                break;
+            case 1:
+                unitNormal = { 1, 0 };
+                break;
+            case 2:
+                unitNormal = { 0, -1 };
+                break;
+            case 3:
+                unitNormal = { 0, 1 };
+                break;
+            }
+
+            Vector2 velocity = (positions[particleID] - previousPositions[particleID]) / timeStep;
+
+            Vector2 velNormal = unitNormal * Vector2DotProduct(velocity, unitNormal);
+            Vector2 velTangent = velocity - velNormal;
+
+            Vector2 impulse = (velNormal * -1); //- (velTangent * frictionCoefficient);
+            positions[particleID] += impulse * timeStep;
+
+            // Extraction Code
+            Vector2 updatedParticlePos = positions[particleID];
+            Vector2 updatedOffset = updatedParticlePos - rects[i].pos;
+            if (updatedOffset.x + particleRadius < 0 || updatedOffset.x - particleRadius > rects[i].width || updatedOffset.y + particleRadius < 0 || updatedOffset.y - particleRadius > rects[i].height) {
+                continue;
+            }
+
+            distances[0] = rects[i].pos.x - particlePos.x;
+            distances[1] = particlePos.x - (rects[i].pos.x + rects[i].width);
+            distances[2] = rects[i].pos.y - particlePos.y;
+            distances[3] = particlePos.y - (rects[i].pos.y + rects[i].height);
+
+            minIndex = 0;
+            for (int n = 0; n < 4; n++) {
+                if (abs(distances[minIndex]) > abs(distances[n])) {
+                    minIndex = n;
+                }
+            }
+
+            float updatedSignedDistance = distances[minIndex];
+
+            Vector2 updatedUnitNormal;
+            switch (minIndex) {
+            case 0:
+                updatedUnitNormal = { -1, 0 };
+                break;
+            case 1:
+                updatedUnitNormal = { 1, 0 };
+                break;
+            case 2:
+                updatedUnitNormal = { 0, -1 };
+                break;
+            case 3:
+                updatedUnitNormal = { 0, 1 };
+                break;
+            }
+
+            positions[particleID] += updatedUnitNormal * -(updatedSignedDistance - particleRadius);
         }
     }
 
@@ -827,18 +954,22 @@ void Simulation::draw() {
     Vector2 spawnScreenPos = convertToScreenPos(spawnArea.getStartPos());
     DrawRectangleLines(spawnScreenPos.x, spawnScreenPos.y, spawnArea.getWidth() * scale, spawnArea.getHeight() * scale, BLACK);
 
-    Vector2 despawnScreenPos = convertToScreenPos(despawnArea.getStartPos());
-    DrawRectangleLines(despawnScreenPos.x, despawnScreenPos.y, despawnArea.getWidth() * scale, despawnArea.getHeight() * scale, BLACK);
-
-    for (int i = 0; i < airflows.getCount(); i++) {
-        Vector2 airflowScreenPos = convertToScreenPos(airflows[i].pos);
-        DrawRectangleLines(airflowScreenPos.x, airflowScreenPos.y, airflows[i].width * scale, airflows[i].height * scale, BLACK);
+    for (int i = 0; i < despawnAreas.getCount(); i++) {
+        Vector2 despawnScreenPos = convertToScreenPos(despawnAreas[i].getStartPos());
+        DrawRectangleLines(despawnScreenPos.x, despawnScreenPos.y, despawnAreas[i].getWidth() * scale, despawnAreas[i].getHeight() * scale, BLACK);
     }
 
     for (int i = 0; i < balls.getCount(); i++) {
         Vector2 ballScreenPos = convertToScreenPos(balls[i].pos);
         //DrawCircleLines(ballScreenPos.x, ballScreenPos.y, balls[i].radius * scale, BLACK);
         DrawCircle(ballScreenPos.x, ballScreenPos.y, balls[i].radius * scale, LIGHTGRAY);
+    }
+
+    for (int i = 0; i < rects.getCount(); i++) {
+        Vector2 rectPos = convertToScreenPos(rects[i].pos);
+        Rectangle test = { rectPos.x, rectPos.y, rects[i].width * scale, rects[i].height * scale };
+        //DrawRectangle(rectPos.x, rectPos.y, rects[i].width * scale, rects[i].height * scale, LIGHTGRAY);
+        DrawRectanglePro(test, { 0, 0 }, rects[i].rotation, LIGHTGRAY);
     }
 
     DrawCircleLines(mousePos.x, mousePos.y, mouseInteractRadius * scale, BLACK);

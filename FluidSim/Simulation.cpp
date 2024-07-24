@@ -18,7 +18,7 @@ Simulation::Simulation(Vector4 _bounds) {
     texture = LoadTextureFromImage(whiteImage);
     UnloadImage(whiteImage);
 
-    gravity = { 0, 1 };
+    gravity = { 0, 0 };
     frictionCoefficient = 0.05f;
     stickyDist = 1.f;
     stickyCoefficient = 0.1f;
@@ -103,7 +103,7 @@ Simulation::Simulation(Vector4 _bounds) {
 
     rects = Array<Rect>(1);
     rects[0] = {
-        {20, 60},
+        {30, 60},
         10,
         15,
         0.f
@@ -592,26 +592,26 @@ void Simulation::stepForward() {
         applyPressureDisplacements(particleID, timeStep);
     }
 
-    //// particle spawning
-    //for (int i = 0; i < spawnAmount; i++) {
-    //    Vector2 spawnPos = { spawnArea.bounds.x + ((rand() * spawnArea.getWidth()) / RAND_MAX), spawnArea.bounds.y + ((rand() * spawnArea.getHeight()) / RAND_MAX) };
+    // particle spawning
+    for (int i = 0; i < spawnAmount; i++) {
+        Vector2 spawnPos = { spawnArea.bounds.x + ((rand() * spawnArea.getWidth()) / RAND_MAX), spawnArea.bounds.y + ((rand() * spawnArea.getHeight()) / RAND_MAX) };
 
-    //    spawnParticle(defaultMass, spawnPos, spawnArea.initVel);
-    //}
+        spawnParticle(defaultMass, spawnPos, spawnArea.initVel);
+    }
 
-    //// particle despawning
-    //for (int i = 0; i < despawnAreas.getCount(); i++) {
-    //    for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
-    //        int particleID = objectPool[poolIndex];
-    //        Vector2 particlePos = positions[particleID];
+    // particle despawning
+    for (int i = 0; i < despawnAreas.getCount(); i++) {
+        for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
+            int particleID = objectPool[poolIndex];
+            Vector2 particlePos = positions[particleID];
 
-    //        if (particlePos.x < despawnAreas[i].bounds.x || particlePos.x > despawnAreas[i].bounds.z || particlePos.y < despawnAreas[i].bounds.y || particlePos.y > despawnAreas[i].bounds.w) {
-    //            continue;
-    //        }
+            if (particlePos.x < despawnAreas[i].bounds.x || particlePos.x > despawnAreas[i].bounds.z || particlePos.y < despawnAreas[i].bounds.y || particlePos.y > despawnAreas[i].bounds.w) {
+                continue;
+            }
 
-    //        despawnParticle(poolIndex);
-    //    }
-    //}
+            despawnParticle(poolIndex);
+        }
+    }
     
 
     // ball collisions
@@ -675,26 +675,9 @@ void Simulation::stepForward() {
             int particleID = objectPool[poolIndex];
 
             // Sticky Code
-            //Vector2 BtoP = positions[particleID] - balls[i].pos;
-            //float sqrDist = Vector2LengthSqr(BtoP);
 
-            //float dist = sqrt(sqrDist);
-            //Vector2 unitNormal = BtoP / dist;
-
-            //float surfDist = dist - balls[i].radius - particleRadius;
-            //if (surfDist < stickyDist) {
-            //    Vector2 impulseStick = unitNormal * -stickyCoefficient * surfDist * (1 - (surfDist / stickyDist));
-            //    positions[particleID] += impulseStick * timeStep;
-            //}
-
-            //if (sqrDist >= balls[i].radius * balls[i].radius) {
-            //    continue;
-            //}
 
             // Collision Code
-
-            float signedDistance;
-            Vector2 unitNormal;
 
             // temporary implementation
             Vector2 particlePos = positions[particleID];
@@ -710,10 +693,10 @@ void Simulation::stepForward() {
             }
 
             float distances[4];
-            distances[0] = -offset.x;
-            distances[1] = endOffset.x;
-            distances[2] = -offset.y;
-            distances[3] = endOffset.y;
+            distances[0] = -offset.x - particleRadius;
+            distances[1] = endOffset.x - particleRadius;
+            distances[2] = -offset.y - particleRadius;
+            distances[3] = endOffset.y - particleRadius;
 
             int minIndex = 0;
             for (int n = 0; n < 4; n++) {
@@ -722,6 +705,7 @@ void Simulation::stepForward() {
                 }
             }
 
+            Vector2 unitNormal;
             switch (minIndex) {
             case 0:
                 unitNormal = { -1, 0 };
@@ -742,47 +726,49 @@ void Simulation::stepForward() {
             Vector2 velNormal = unitNormal * Vector2DotProduct(velocity, unitNormal);
             Vector2 velTangent = velocity - velNormal;
 
-            Vector2 impulse = (velNormal * -1); //- (velTangent * frictionCoefficient);
+            Vector2 impulse = (velNormal * -1) - (velTangent * frictionCoefficient);
             positions[particleID] += impulse * timeStep;
 
             // Extraction Code
             Vector2 updatedParticlePos = positions[particleID];
             Vector2 updatedOffset = updatedParticlePos - rects[i].pos;
-            if (updatedOffset.x + particleRadius < 0 || updatedOffset.x - particleRadius > rects[i].width || updatedOffset.y + particleRadius < 0 || updatedOffset.y - particleRadius > rects[i].height) {
+            Vector2 updatedEndOffset = updatedOffset - Vector2{ rects[i].width, rects[i].height };
+
+            if (updatedOffset.x + particleRadius < 0 || updatedEndOffset.x - particleRadius > 0 || updatedOffset.y + particleRadius < 0 || updatedEndOffset.y - particleRadius > 0) {
                 continue;
             }
 
-            distances[0] = rects[i].pos.x - particlePos.x;
-            distances[1] = particlePos.x - (rects[i].pos.x + rects[i].width);
-            distances[2] = rects[i].pos.y - particlePos.y;
-            distances[3] = particlePos.y - (rects[i].pos.y + rects[i].height);
+            distances[0] = -updatedOffset.x - particleRadius;
+            distances[1] = endOffset.x - particleRadius;
+            distances[2] = -updatedOffset.y - particleRadius;
+            distances[3] = endOffset.y - particleRadius;
 
-            minIndex = 0;
-            for (int n = 0; n < 4; n++) {
-                if (abs(distances[minIndex]) > abs(distances[n])) {
-                    minIndex = n;
-                }
-            }
+            //minIndex = 0;
+            //for (int n = 0; n < 4; n++) {
+            //    if (abs(distances[minIndex]) > abs(distances[n])) {
+            //        minIndex = n;
+            //    }
+            //}
 
             float updatedSignedDistance = distances[minIndex];
 
-            Vector2 updatedUnitNormal;
-            switch (minIndex) {
-            case 0:
-                updatedUnitNormal = { -1, 0 };
-                break;
-            case 1:
-                updatedUnitNormal = { 1, 0 };
-                break;
-            case 2:
-                updatedUnitNormal = { 0, -1 };
-                break;
-            case 3:
-                updatedUnitNormal = { 0, 1 };
-                break;
-            }
+            //Vector2 updatedUnitNormal;
+            //switch (minIndex) {
+            //case 0:
+            //    updatedUnitNormal = { -1, 0 };
+            //    break;
+            //case 1:
+            //    updatedUnitNormal = { 1, 0 };
+            //    break;
+            //case 2:
+            //    updatedUnitNormal = { 0, -1 };
+            //    break;
+            //case 3:
+            //    updatedUnitNormal = { 0, 1 };
+            //    break;
+            //}
 
-            positions[particleID] += updatedUnitNormal * -(updatedSignedDistance - particleRadius);
+            positions[particleID] += unitNormal * (-updatedSignedDistance);
         }
     }
 
@@ -832,13 +818,6 @@ void Simulation::stepForward() {
             }
         }
     }
-
-    //float pressure = (densities[otherParticleID] - targetDensity) * pressureMultiplier;
-    //float nearPressure = nearDensities[otherParticleID] * nearPressureMultiplier;
-
-    //float weight = 1 - (dist / smoothingRadius);
-
-    //pressureForce -= dir * (pressure * weight + nearPressure * weight * weight) / 2;
 
     // boundary collision check
     for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {

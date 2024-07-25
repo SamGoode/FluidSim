@@ -19,7 +19,7 @@ Simulation::Simulation(Vector4 _bounds) {
     UnloadImage(whiteImage);
 
     gravity = { 0, 0 };
-    frictionCoefficient = 0.05f;
+    frictionCoefficient = 0.f;
     stickyDist = 1.f;
     stickyCoefficient = 0.1f;
 
@@ -30,7 +30,7 @@ Simulation::Simulation(Vector4 _bounds) {
     smoothingRadius = 2.f;
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5f;
-    targetDensity = 2.f;
+    targetDensity = 1.5f;
     pressureMultiplier = 50;
     nearPressureMultiplier = 200;
     timeDilation = 2.f;
@@ -55,62 +55,48 @@ Simulation::Simulation(Vector4 _bounds) {
         {0, 98, 133.33f, 100}
     };
 
-    balls = Array<Ball>(1);
+    balls = Array<Ball>(5);
     balls[0] = {
-        {67, 51},
-        6
+        {60, 50},
+        4
     };
-    //balls[1] = {
-    //    {69, 51},
-    //    7
-    //};
-    //balls[2] = {
-    //    {72, 50.5},
-    //    8
-    //};
-    //balls[3] = {
-    //    {76, 50},
-    //    9.5
-    //};
-    //balls[4] = {
-    //    {80, 50},
-    //    10
-    //};
-    //balls[5] = {
-    //    {85, 50},
-    //    10
-    //};
-    //balls[6] = {
-    //    {89, 51},
-    //    9
-    //};
-    //balls[7] = {
-    //    {92, 52},
-    //    8
-    //};
-    //balls[8] = {
-    //    {95, 53},
-    //    7
-    //};
-    //balls[9] = {
-    //    {98, 54},
-    //    6
-    //};
-    //balls[10] = {
-    //    {100, 55},
-    //    5
-    //};
+    balls[1] = {
+        {62.5f, 49.2f},
+        4.4f
+    };
+    balls[2] = {
+        {65.5f, 49},
+        5.f
+    };
+    balls[3] = {
+        {66.8f, 49},
+        4.5f
+    };
+    balls[4] = {
+        {102, 59.5f},
+        1.9f
+    };
 
-    rects = Array<Rect>(2);
+    rects = Array<Rect>(4);
     rects[0] = {
-        {35, 30},
-        {10, 50},
-        -0.f
+        {81, 56.5f},
+        {45, 2},
+        10.f
     };
     rects[1] = {
-        {90, 80},
-        {10, 20},
+        {84, 52.f},
+        {40, 2},
         20.f
+    };
+    rects[2] = {
+        {82, 53},
+        {35, 3},
+        18.f
+    };
+    rects[3] = {
+        {82, 55},
+        {35, 3},
+        12.f
     };
 
     fixedTimeStep = 0.02f;
@@ -529,7 +515,6 @@ void Simulation::update(float deltaTime) {
 
     timePassed += deltaTime * timeDilation;
 
-
     float nextTimeStepSize = calculateTimeStepSize();
     while (timePassed > nextTimeStepSize) {
         stepForward();
@@ -672,9 +657,6 @@ void Simulation::stepForward() {
             positions[particleID] += updatedUnitNormal * -(updatedSignedDistance - particleRadius);
         }
     }
-
-    rects[0].rotation += -10.f * timeStep;
-    rects[1].rotation += 30.f * timeStep;
 
     // rect collisions
     for (int i = 0; i < rects.getCount(); i++) {

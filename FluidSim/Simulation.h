@@ -59,8 +59,7 @@ struct Ball {
 
 struct Rect {
     Vector2 pos;
-    float width;
-    float height;
+    Vector2 size;
     float rotation;
 };
 

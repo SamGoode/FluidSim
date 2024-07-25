@@ -36,7 +36,7 @@ Simulation::Simulation(Vector4 _bounds) {
     timeDilation = 2.f;
 
     mouseInteractRadius = 8;
-    mouseInteractForce = 15;
+    mouseInteractForce = 30;
 
     spawnAmount = 10;
     spawnArea = {
@@ -55,58 +55,62 @@ Simulation::Simulation(Vector4 _bounds) {
         {0, 98, 133.33f, 100}
     };
 
-    balls = Array<Ball>(11);
+    balls = Array<Ball>(1);
     balls[0] = {
         {67, 51},
         6
     };
-    balls[1] = {
-        {69, 51},
-        7
-    };
-    balls[2] = {
-        {72, 50.5},
-        8
-    };
-    balls[3] = {
-        {76, 50},
-        9.5
-    };
-    balls[4] = {
-        {80, 50},
-        10
-    };
-    balls[5] = {
-        {85, 50},
-        10
-    };
-    balls[6] = {
-        {89, 51},
-        9
-    };
-    balls[7] = {
-        {92, 52},
-        8
-    };
-    balls[8] = {
-        {95, 53},
-        7
-    };
-    balls[9] = {
-        {98, 54},
-        6
-    };
-    balls[10] = {
-        {100, 55},
-        5
-    };
+    //balls[1] = {
+    //    {69, 51},
+    //    7
+    //};
+    //balls[2] = {
+    //    {72, 50.5},
+    //    8
+    //};
+    //balls[3] = {
+    //    {76, 50},
+    //    9.5
+    //};
+    //balls[4] = {
+    //    {80, 50},
+    //    10
+    //};
+    //balls[5] = {
+    //    {85, 50},
+    //    10
+    //};
+    //balls[6] = {
+    //    {89, 51},
+    //    9
+    //};
+    //balls[7] = {
+    //    {92, 52},
+    //    8
+    //};
+    //balls[8] = {
+    //    {95, 53},
+    //    7
+    //};
+    //balls[9] = {
+    //    {98, 54},
+    //    6
+    //};
+    //balls[10] = {
+    //    {100, 55},
+    //    5
+    //};
 
-    rects = Array<Rect>(1);
+    rects = Array<Rect>(2);
     rects[0] = {
-        {30, 60},
-        10,
-        15,
-        0.f
+        {35, 30},
+        {10, 50},
+        -0.f
+    };
+    rects[1] = {
+        {90, 80},
+        {10, 20},
+        20.f
     };
 
     fixedTimeStep = 0.02f;
@@ -657,20 +661,29 @@ void Simulation::stepForward() {
 
             // Extraction Code
             Vector2 updatedBtoP = positions[particleID] - balls[i].pos;
-            float updatedDist = Vector2Length(BtoP);
+            float updatedDist = Vector2Length(updatedBtoP);
             float updatedSignedDistance = updatedDist - balls[i].radius;
 
             if (updatedSignedDistance > particleRadius) {
                 continue;
             }
 
-            Vector2 updatedUnitNormal = BtoP / updatedDist;
+            Vector2 updatedUnitNormal = updatedBtoP / updatedDist;
             positions[particleID] += updatedUnitNormal * -(updatedSignedDistance - particleRadius);
         }
     }
 
+    rects[0].rotation += -10.f * timeStep;
+    rects[1].rotation += 30.f * timeStep;
+
     // rect collisions
     for (int i = 0; i < rects.getCount(); i++) {
+        // relevant rect info
+        Vector2 centre = rects[i].pos;
+        Vector2 halfSize = rects[i].size / 2;
+        float radians = rects[i].rotation * (PI / 180.f);
+        Matrix rotationMatrix = MatrixRotateZ(radians);
+
         for (int poolIndex = 0; poolIndex < activeCount; poolIndex++) {
             int particleID = objectPool[poolIndex];
 
@@ -678,51 +691,47 @@ void Simulation::stepForward() {
 
 
             // Collision Code
-
-            // temporary implementation
             Vector2 particlePos = positions[particleID];
-            Vector2 offset = particlePos - rects[i].pos;
-            Vector2 endOffset = offset - Vector2{ rects[i].width, rects[i].height };
-            
-            //Vector2 centre = rects[i].pos + Vector2{ rects[i].width / 2, rects[i].height / 2 };
-            //Vector2 dist = particlePos - centre;
-            //std::max(abs(dist.x, 0.f);
+            Vector2 dist = particlePos - centre;
+            dist = Vector2Rotate(dist, -radians);
 
-            if (offset.x + particleRadius < 0 || endOffset.x - particleRadius > 0 || offset.y + particleRadius < 0 || endOffset.y - particleRadius > 0) {
+            if (abs(dist.x) - halfSize.x - particleRadius > 0 || abs(dist.y) - halfSize.y - particleRadius > 0) {
                 continue;
             }
 
-            float distances[4];
-            distances[0] = -offset.x - particleRadius;
-            distances[1] = endOffset.x - particleRadius;
-            distances[2] = -offset.y - particleRadius;
-            distances[3] = endOffset.y - particleRadius;
-
-            int minIndex = 0;
-            for (int n = 0; n < 4; n++) {
-                if (abs(distances[minIndex]) > abs(distances[n])) {
-                    minIndex = n;
+            int directionIndex;
+            Vector2 unitNormal;
+            // particle radius on both sides should cancel out
+            if (abs(abs(dist.x) - halfSize.x - particleRadius) < abs(abs(dist.y) - halfSize.y - particleRadius)) {
+                //left right
+                if (dist.x < 0) {
+                    //left
+                    unitNormal = { -1, 0 };
+                    directionIndex = 0;
+                }
+                else if (dist.x >= 0) {
+                    //right
+                    unitNormal = { 1, 0 };
+                    directionIndex = 1;
                 }
             }
-
-            Vector2 unitNormal;
-            switch (minIndex) {
-            case 0:
-                unitNormal = { -1, 0 };
-                break;
-            case 1:
-                unitNormal = { 1, 0 };
-                break;
-            case 2:
-                unitNormal = { 0, -1 };
-                break;
-            case 3:
-                unitNormal = { 0, 1 };
-                break;
+            else {
+                //up down
+                if (dist.y < 0) {
+                    //up
+                    unitNormal = { 0, -1 };
+                    directionIndex = 2;
+                }
+                else if (dist.y >= 0) {
+                    //down
+                    unitNormal = { 0, 1 };
+                    directionIndex = 3;
+                }
             }
 
             Vector2 velocity = (positions[particleID] - previousPositions[particleID]) / timeStep;
 
+            unitNormal = Vector2Rotate(unitNormal, radians);
             Vector2 velNormal = unitNormal * Vector2DotProduct(velocity, unitNormal);
             Vector2 velTangent = velocity - velNormal;
 
@@ -731,44 +740,30 @@ void Simulation::stepForward() {
 
             // Extraction Code
             Vector2 updatedParticlePos = positions[particleID];
-            Vector2 updatedOffset = updatedParticlePos - rects[i].pos;
-            Vector2 updatedEndOffset = updatedOffset - Vector2{ rects[i].width, rects[i].height };
+            Vector2 updatedDist = updatedParticlePos - centre;
+            updatedDist = Vector2Rotate(updatedDist, -radians);
 
-            if (updatedOffset.x + particleRadius < 0 || updatedEndOffset.x - particleRadius > 0 || updatedOffset.y + particleRadius < 0 || updatedEndOffset.y - particleRadius > 0) {
+            if (abs(updatedDist.x) - halfSize.x - particleRadius > 0 || abs(updatedDist.y) - halfSize.y - particleRadius > 0) {
                 continue;
             }
 
-            distances[0] = -updatedOffset.x - particleRadius;
-            distances[1] = endOffset.x - particleRadius;
-            distances[2] = -updatedOffset.y - particleRadius;
-            distances[3] = endOffset.y - particleRadius;
+            float updatedSignedDistance;
+            switch (directionIndex) {
+            case 0:
+                updatedSignedDistance = abs(updatedDist.x) - halfSize.x;
+                break;
+            case 1:
+                updatedSignedDistance = abs(updatedDist.x) - halfSize.x;
+                break;
+            case 2:
+                updatedSignedDistance = abs(updatedDist.y) - halfSize.y;
+                break;
+            case 3:
+                updatedSignedDistance = abs(updatedDist.y) - halfSize.y;
+                break;
+            }
 
-            //minIndex = 0;
-            //for (int n = 0; n < 4; n++) {
-            //    if (abs(distances[minIndex]) > abs(distances[n])) {
-            //        minIndex = n;
-            //    }
-            //}
-
-            float updatedSignedDistance = distances[minIndex];
-
-            //Vector2 updatedUnitNormal;
-            //switch (minIndex) {
-            //case 0:
-            //    updatedUnitNormal = { -1, 0 };
-            //    break;
-            //case 1:
-            //    updatedUnitNormal = { 1, 0 };
-            //    break;
-            //case 2:
-            //    updatedUnitNormal = { 0, -1 };
-            //    break;
-            //case 3:
-            //    updatedUnitNormal = { 0, 1 };
-            //    break;
-            //}
-
-            positions[particleID] += unitNormal * (-updatedSignedDistance);
+            positions[particleID] += unitNormal * -(updatedSignedDistance - particleRadius);
         }
     }
 
@@ -914,6 +909,16 @@ void Simulation::stepForward() {
 }
 
 void Simulation::draw() {
+    for (int i = 0; i < rects.getCount(); i++) {
+        Vector2 rectPos = convertToScreenPos(rects[i].pos);
+        Vector2 scaledSize = rects[i].size * scale;
+        Rectangle test = { rectPos.x, rectPos.y, scaledSize.x, scaledSize.y };
+
+        //DrawRectangle(rectPos.x, rectPos.y, rects[i].width * scale, rects[i].height * scale, LIGHTGRAY);
+        DrawRectanglePro(test, { scaledSize.x / 2, scaledSize.y / 2 }, rects[i].rotation, LIGHTGRAY);
+
+    }
+
     rlBindShaderBuffer(textureSSBO, 1);
     SetShaderValue(renderSimShader, resUniformLoc, &resolution, SHADER_UNIFORM_VEC2);
 
@@ -944,12 +949,7 @@ void Simulation::draw() {
         DrawCircle(ballScreenPos.x, ballScreenPos.y, balls[i].radius * scale, LIGHTGRAY);
     }
 
-    for (int i = 0; i < rects.getCount(); i++) {
-        Vector2 rectPos = convertToScreenPos(rects[i].pos);
-        Rectangle test = { rectPos.x, rectPos.y, rects[i].width * scale, rects[i].height * scale };
-        //DrawRectangle(rectPos.x, rectPos.y, rects[i].width * scale, rects[i].height * scale, LIGHTGRAY);
-        DrawRectanglePro(test, { 0, 0 }, rects[i].rotation, LIGHTGRAY);
-    }
+    
 
     DrawCircleLines(mousePos.x, mousePos.y, mouseInteractRadius * scale, BLACK);
 

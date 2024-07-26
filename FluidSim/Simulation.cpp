@@ -18,85 +18,75 @@ Simulation::Simulation(Vector4 _bounds) {
     texture = LoadTextureFromImage(whiteImage);
     UnloadImage(whiteImage);
 
-    gravity = { 0, 0 };
+    gravity = { 1, 0 };
     frictionCoefficient = 0.f;
     stickyDist = 1.f;
     stickyCoefficient = 0.1f;
 
     viscLinear = 0.f;
-    viscQuad = 0.2f;
+    viscQuad = 0.1f;
 
     showSmoothingRadius = false;
     smoothingRadius = 2.f;
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5f;
     targetDensity = 1.5f;
-    pressureMultiplier = 50;
-    nearPressureMultiplier = 200;
-    timeDilation = 2.f;
+    pressureMultiplier = 200;
+    nearPressureMultiplier = 400;
+    timeDilation = 1.5f;
 
     mouseInteractRadius = 8;
     mouseInteractForce = 30;
 
     spawnAmount = 10;
     spawnArea = {
-        {0, 0, 2, 100},
-        {20, 0}
+        {0, 10, 2, 90},
+        {10, 0}
     };
 
-    despawnAreas = Array<DespawnArea>(3);
+    despawnAreas = Array<DespawnArea>(1);
     despawnAreas[0] = {
         {131.33f, 0, 133.33f, 100}
     };
-    despawnAreas[1] = {
-        {0, 0, 133.33f, 2}
-    };
-    despawnAreas[2] = {
-        {0, 98, 133.33f, 100}
-    };
+    //despawnAreas[1] = {
+    //    {0, 0, 133.33f, 2}
+    //};
+    //despawnAreas[2] = {
+    //    {0, 98, 133.33f, 100}
+    //};
 
-    balls = Array<Ball>(5);
-    balls[0] = {
-        {60, 50},
-        4
-    };
-    balls[1] = {
-        {62.5f, 49.2f},
-        4.4f
-    };
-    balls[2] = {
-        {65.5f, 49},
-        5.f
-    };
-    balls[3] = {
-        {66.8f, 49},
-        4.5f
-    };
-    balls[4] = {
-        {102, 59.5f},
-        1.9f
-    };
+    balls = Array<Ball>(0);
 
-    rects = Array<Rect>(4);
+    rects = Array<Rect>(6);
     rects[0] = {
-        {81, 56.5f},
-        {45, 2},
-        10.f
-    };
-    rects[1] = {
-        {84, 52.f},
-        {40, 2},
+        {66, 18},
+        {60, 4},
         20.f
     };
+    rects[1] = {
+        {66, 82},
+        {60, 4},
+        -20.f
+    };
     rects[2] = {
-        {82, 53},
-        {35, 3},
-        18.f
+        {20, 8},
+        {40, 4},
+        0.f
     };
     rects[3] = {
-        {82, 55},
-        {35, 3},
-        12.f
+        {20, 92},
+        {40, 4},
+        0.f
+    };
+    rects[4] = {
+        {113, 28},
+        {40, 4},
+        0.f
+    };
+    rects[5] = {
+        {113, 72},
+        {40, 4},
+        0.f
     };
 
     fixedTimeStep = 0.02f;
@@ -802,22 +792,22 @@ void Simulation::stepForward() {
 
         float pressure = targetDensity * nearPressureMultiplier * 1.5f;
 
-        if (positions[particleID].y + smoothingRadius >= getScaledHeight()) {
-            //positions[particleID].y = (getScaledHeight() - smoothingRadius);
-            
-            float dist = getScaledHeight() - positions[particleID].y;
-            float value = (1 - (dist / smoothingRadius));
-            
-            positions[particleID].y -= pressure * value * value * timeStep * timeStep;
-        }
-        else if (positions[particleID].y - smoothingRadius <= 0) {
-            //positions[particleID].y = smoothingRadius;
+        //if (positions[particleID].y + smoothingRadius >= getScaledHeight()) {
+        //    //positions[particleID].y = (getScaledHeight() - smoothingRadius);
+        //    
+        //    float dist = getScaledHeight() - positions[particleID].y;
+        //    float value = (1 - (dist / smoothingRadius));
+        //    
+        //    positions[particleID].y -= pressure * value * value * timeStep * timeStep;
+        //}
+        //else if (positions[particleID].y - smoothingRadius <= 0) {
+        //    //positions[particleID].y = smoothingRadius;
 
-            float dist = positions[particleID].y;
-            float value = (1 - (dist / smoothingRadius));
-            
-            positions[particleID].y += pressure * value * value * timeStep * timeStep;
-        }
+        //    float dist = positions[particleID].y;
+        //    float value = (1 - (dist / smoothingRadius));
+        //    
+        //    positions[particleID].y += pressure * value * value * timeStep * timeStep;
+        //}
 
         if (positions[particleID].x - smoothingRadius <= 0) {
             //positions[particleID].x = smoothingRadius;

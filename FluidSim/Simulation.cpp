@@ -6,20 +6,21 @@
 
 #define MAX_PARTICLE_COUNT 16384
 
-#define SIM_WIDTH 800
-#define SIM_HEIGHT 600
+#define SIM_WIDTH 1000
+#define SIM_HEIGHT 800
+#define SCALE 4
 
 Simulation::Simulation(Vector4 _bounds) {
     bounds = _bounds;
     // scale is pixels/unit
-    scale = 6;
+    scale = SCALE;
     resolution = { getWidth(), getHeight() };
     Image whiteImage = GenImageColor(getWidth(), getHeight(), WHITE);
     texture = LoadTextureFromImage(whiteImage);
     UnloadImage(whiteImage);
 
-    gravity = { 1, 0 };
-    frictionCoefficient = 0.f;
+    gravity = { 0, 2 };
+    frictionCoefficient = 0.02f;
     stickyDist = 1.f;
     stickyCoefficient = 0.1f;
 
@@ -30,64 +31,68 @@ Simulation::Simulation(Vector4 _bounds) {
     smoothingRadius = 2.f;
     sqrRadius = smoothingRadius * smoothingRadius;
     particleRadius = 0.5f;
-    targetDensity = 1.5f;
-    pressureMultiplier = 200;
-    nearPressureMultiplier = 400;
+    targetDensity = 2.5f;
+    pressureMultiplier = 100;
+    nearPressureMultiplier = 150;
     timeDilation = 1.5f;
 
     mouseInteractRadius = 8;
     mouseInteractForce = 30;
 
-    spawnAmount = 10;
+    spawnAmount = 3;
     spawnArea = {
-        {0, 10, 2, 90},
-        {10, 0}
+        {120, 0, 130, 2},
+        {0, 0}
     };
 
-    despawnAreas = Array<DespawnArea>(1);
-    despawnAreas[0] = {
-        {131.33f, 0, 133.33f, 100}
-    };
-    //despawnAreas[1] = {
-    //    {0, 0, 133.33f, 2}
-    //};
-    //despawnAreas[2] = {
-    //    {0, 98, 133.33f, 100}
+    despawnAreas = Array<DespawnArea>(0);
+    //despawnAreas[0] = {
+    //    {0, 198, 250, 200}
     //};
 
-    balls = Array<Ball>(0);
+    // Ball Layout Generation
+    
+    // (n + 1)(n / 2) = n(n + 1)/2
+    int layers = 4;
+    int ballCount = layers * (layers + 1) / 2;
+    Vector2 startPos = { 125, 30 };
+    Vector2 spacing = { 25, 20 };
+    float spacingMultiplier = 0.5f;
+    float ballRadius = 5;
 
-    rects = Array<Rect>(6);
+    balls = Array<Ball>(ballCount);
+    for (int i = 0; i < layers; i++) {
+        int previousBalls = i * (i + 1) / 2;
+        for (int n = 0; n < i + 1; n++) {
+            //balls[previousBalls + n] = { {startPos.x + n * spacing.x - (i * spacing.x / 2), startPos.y + i * spacing.y}, ballRadius};
+            balls[previousBalls + n] = { {startPos.x + (spacing.x * (1 + i * spacingMultiplier)) * (n - (i / 2.f)), startPos.y + i * spacing.y}, ballRadius};
+        }
+    }
+    // n * a - (i * a / 2)
+    // a * n - (a * i / 2)
+    // a * n + a * (-i / 2)
+    // a * (n - i/2))
+
+    rects = Array<Rect>(2 + layers);
     rects[0] = {
-        {66, 18},
-        {60, 4},
-        20.f
+        {115, 10},
+        {5, 20},
+        -0.f
     };
     rects[1] = {
-        {66, 82},
-        {60, 4},
-        -20.f
-    };
-    rects[2] = {
-        {20, 8},
-        {40, 4},
+        {135, 10},
+        {5, 20},
         0.f
     };
-    rects[3] = {
-        {20, 92},
-        {40, 4},
-        0.f
-    };
-    rects[4] = {
-        {113, 28},
-        {40, 4},
-        0.f
-    };
-    rects[5] = {
-        {113, 72},
-        {40, 4},
-        0.f
-    };
+
+    for (int i = 0; i < layers; i++) {
+        int index = i + 2;
+        rects[index] = {
+            {startPos.x + (spacing.x * (1 + (layers - 1) * spacingMultiplier)) * (i - ((layers - 1) / 2.f)), 145},
+            {5, 110},
+            0.f
+        };
+    }
 
     fixedTimeStep = 0.02f;
     timePassed = 0;
@@ -792,22 +797,22 @@ void Simulation::stepForward() {
 
         float pressure = targetDensity * nearPressureMultiplier * 1.5f;
 
-        //if (positions[particleID].y + smoothingRadius >= getScaledHeight()) {
-        //    //positions[particleID].y = (getScaledHeight() - smoothingRadius);
-        //    
-        //    float dist = getScaledHeight() - positions[particleID].y;
-        //    float value = (1 - (dist / smoothingRadius));
-        //    
-        //    positions[particleID].y -= pressure * value * value * timeStep * timeStep;
-        //}
-        //else if (positions[particleID].y - smoothingRadius <= 0) {
-        //    //positions[particleID].y = smoothingRadius;
+        if (positions[particleID].y + smoothingRadius >= getScaledHeight()) {
+            //positions[particleID].y = (getScaledHeight() - smoothingRadius);
+            
+            float dist = getScaledHeight() - positions[particleID].y;
+            float value = (1 - (dist / smoothingRadius));
+            
+            positions[particleID].y -= pressure * value * value * timeStep * timeStep;
+        }
+        else if (positions[particleID].y - smoothingRadius <= 0) {
+            //positions[particleID].y = smoothingRadius;
 
-        //    float dist = positions[particleID].y;
-        //    float value = (1 - (dist / smoothingRadius));
-        //    
-        //    positions[particleID].y += pressure * value * value * timeStep * timeStep;
-        //}
+            float dist = positions[particleID].y;
+            float value = (1 - (dist / smoothingRadius));
+            
+            positions[particleID].y += pressure * value * value * timeStep * timeStep;
+        }
 
         if (positions[particleID].x - smoothingRadius <= 0) {
             //positions[particleID].x = smoothingRadius;

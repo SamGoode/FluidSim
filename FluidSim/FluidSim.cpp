@@ -4,7 +4,7 @@
 
 int main() {
     int screenWidth = 1600;
-    int screenHeight = 800;
+    int screenHeight = 1000;
 
     InitWindow(screenWidth, screenHeight, "Smooth Particle Hydrodynamics Sim");
 
@@ -13,7 +13,7 @@ int main() {
     int seed = 844134593;
     srand(seed);
 
-    Simulation sim({ 400, 100, (float)screenWidth - 400, (float)screenHeight - 100 });
+    Simulation sim({ 300, 100, (float)screenWidth - 300, (float)screenHeight - 100 });
     // update once to initialise all values
     sim.stepForward();
 

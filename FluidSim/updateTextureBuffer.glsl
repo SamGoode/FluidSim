@@ -4,9 +4,9 @@
 
 #define MAX_PARTICLE_COUNT 16384
 
-#define SIM_WIDTH 800
-#define SIM_HEIGHT 600
-#define SCALE 6
+#define SIM_WIDTH 1000
+#define SIM_HEIGHT 800
+#define SCALE 4
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 16) in;
 
